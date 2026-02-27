@@ -40,8 +40,8 @@ extern "C"
 #if BOARD_ID == GIMBAL_ID
         xTaskCreate(sentry_gimbal_init, "pyro_sentry_gimbal_init", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
-        xTaskCreate(sentry_booster_init, "pyro_sentry_booster_init", 512, nullptr,
-                    configMAX_PRIORITIES - 1, nullptr);
+        // xTaskCreate(sentry_booster_init, "pyro_sentry_booster_init", 512, nullptr,
+        //             configMAX_PRIORITIES - 1, nullptr);
 #elif BOARD_ID == CHASSIS_ID
         xTaskCreate(sentry_chassis_init, "pyro_sentry_chassis_init", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);

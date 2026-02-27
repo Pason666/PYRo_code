@@ -75,7 +75,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
             new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
         rud_cfg.pid.follow_yaw_pid =
-            new pid_t(3.6f, 0.01f, 0.003f, 0.1f, 5.0f);
+            new pid_t(2.0f, 0.005f, 0.02f, 0.1f, 5.0f);
 
         rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
         rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -121,9 +121,9 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
     yaw_cfg.pid.yaw_pos_pid =
-        new pid_t(12.0f, 0.2f, 0.02f, 0.5f, 10.0f, 15, 150, 4);
+        new pid_t(35.0f, 0.05f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
     yaw_cfg.pid.yaw_spd_pid =
-        new pid_t(0.3f, 0.003f, 0.0003f, 0.1f, 3.0f, 15, 150, 4);
+        new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3.0f, 15, 150, 4);
 
     yaw_cfg.yaw_offset = -2.40028524f;
 
@@ -267,7 +267,7 @@ extern "C"
         yaw_ptr->configure(*yaw_cfg_ptr);
         rud_chassis_ptr->start();
         yaw_ptr->start();
-        xTaskCreate(sentry_chassis_thread, "start_app_thread", 512, nullptr,
+        xTaskCreate(sentry_chassis_thread, "sentry_chassis_thread", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
         vTaskDelete(nullptr);
     }

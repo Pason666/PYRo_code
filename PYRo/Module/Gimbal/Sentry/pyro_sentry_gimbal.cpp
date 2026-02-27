@@ -12,15 +12,15 @@ void wrap_pi(float &angle)
 }
 
 gimbal_t::gimbal_t()
-    : module_base_t(<"sentry_gimbal", 512, 512, task_base_t::priority_t::HIGH>)
-{ 
-    _ctx.data = {};
+    : module_base_t("sentry_gimbal", 512, 512, task_base_t::priority_t::HIGH)
+{
+    _ctx.data  = {};
     debug_data = {};
 }
 
 status_t gimbal_t::_init()
 {
-    _ctx.gimbal_config = _config;
+    _ctx.gimbal_config = _module_deps;
     return PYRO_OK;
 }
 
@@ -47,50 +47,51 @@ void gimbal_t::_update_feedback()
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
-    // pitch轴位置环
-    ctx->data.target_pitch_rad =
-        ctx->cmd->target_pitch_angle - ctx->gimbal_config.pitch_offset;
+    //  获取目标pitch弧度
+    ctx->data.target_pitch_rad = ctx->cmd->target_pitch_angle;
     wrap_pi(ctx->data.target_pitch_rad);
+
+
+    // pitch轴位置环
     ctx->data.target_pitch_radps =
-        ctx->pid.pitch_pos_pid->calculate(
+        ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, ctx->data.current_pitch_rad);
 
     // pitch轴速度环
     ctx->data.out_pitch_torque =
-        ctx->pid.pitch_spd_pid->calculate(
+        ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps);
 
-    // yaw轴位置环
-    ctx->data.target_yaw_rad =
-        ctx->cmd->target_yaw_angle + ctx->gimbal_config.yaw_offset;
+    // 获取目标yaw弧度
+    ctx->data.target_yaw_rad = ctx->cmd->target_yaw_angle;
     wrap_pi(ctx->data.target_yaw_rad);
-    ctx->data.target_yaw_radps =
-        ctx->pid.yaw_pos_pid->calculate(
-            ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);
+
+
+    // yaw轴位置环
+    ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
+        ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);
 
     // yaw轴速度环
-    ctx->data.out_yaw_torque =
-        ctx->pid.yaw_spd_pid->calculate(
-            ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+    ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
+        ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
 }
 
 void gimbal_t::_send_motor_command(gimbal_context_t *ctx)
 {
     ctx->gimbal_config.motor.pitch->send_torque(ctx->data.out_pitch_torque);
     ctx->gimbal_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
-
 }
 
 void gimbal_t::_fsm_execute()
 {
     _ctx.cmd = &_current_cmd;
 
-    if(cmd_base_t::mode_t::PASSIVE == _ctx.cmd->mode)
+    if (cmd_base_t::mode_t::PASSIVE == _ctx.cmd->mode)
         _main_fsm.change_state(&_passive_state);
-    else if(cmd_base_t::mode_t::ACTIVE == _ctx.cmd->mode)
+    else if (cmd_base_t::mode_t::ACTIVE == _ctx.cmd->mode)
         _main_fsm.change_state(&_active_state);
 
     _main_fsm.execute(this);
 }
 
-}
+} // namespace pyro

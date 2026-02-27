@@ -44,7 +44,7 @@
 #define GIMBAL_ID  1
 #define CHASSIS_ID 2
 
-#define BOARD_ID   CHASSIS_ID
+#define BOARD_ID   GIMBAL_ID
 #endif
 #if (ROBOT_ID == HERO_ID) || (ROBOT_ID == SUB_HERO_ID)
 #define GIMBAL_ID  1

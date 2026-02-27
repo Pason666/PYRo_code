@@ -13,10 +13,20 @@ namespace pyro
 
 struct gimbal_cmd_t final : public cmd_base_t
 {
+    enum class gimbal_mode_t
+    {
+        MANUAL,
+        SCANNING,
+        TRACKING,
+    };
+
     float target_yaw_angle;
     float target_pitch_angle;
+    gimbal_mode_t gimbal_mode;
 
-    gimbal_cmd_t() : target_yaw_angle(0), target_pitch_angle(0)
+    gimbal_cmd_t()
+        : target_yaw_angle(0), target_pitch_angle(0),
+          gimbal_mode(gimbal_mode_t::MANUAL)
     {
     }
 };
@@ -26,12 +36,12 @@ struct gimbal_cfg_t
     struct motor_cfg_t
     {
         motor_base_t *yaw{nullptr};
-        motor_base_t *pitch{nullptr};
+        dm_motor_drv_t *pitch{nullptr};
     };
 
     struct pid_cfg_t
     {
-        pid_t *yaw_poa_pid{};
+        pid_t *yaw_pos_pid{};
         pid_t *yaw_spd_pid{};
         pid_t *pitch_pos_pid{};
         pid_t *pitch_spd_pid{};
@@ -41,10 +51,14 @@ struct gimbal_cfg_t
     pid_cfg_t pid;
     float yaw_offset{};
     float pitch_offset{};
+    float yaw_max_rad{};
+    float yaw_min_rad{};
+    float pitch_max_rad{};
+    float pitch_min_rad{};
 };
 
 class gimbal_t final
-    : public module_base_t<gimbal_t, gimbal_cmd_t>
+    : public module_base_t<gimbal_t, gimbal_cmd_t, gimbal_cfg_t>
 {
     friend class module_base_t;
 
@@ -53,12 +67,16 @@ class gimbal_t final
     struct data_ctx_t;
     struct gimbal_context_t;
 
+  public:
+    gimbal_t(const gimbal_t &)            = delete;
+    gimbal_t &operator=(const gimbal_t &) = delete;
+
   private:
     gimbal_t();
     ~gimbal_t() override = default;
 
     // --- 基类接口实现 ---
-    void _init() override;
+    status_t _init() override;
     void _update_feedback() override;
     void _fsm_execute() override;
 
@@ -101,6 +119,8 @@ class gimbal_t final
         float out_yaw_torque{0.0f};
     };
 
+
+
     struct gimbal_context_t
     {
         gimbal_cfg_t gimbal_config;
@@ -128,7 +148,7 @@ class gimbal_t final
         void exit(owner *owner) override;
     };
 
-    struct state_active_t : public state_t<owner>
+    struct fsm_active_t : public fsm_t<owner>
     {
         // 子状态
         struct state_scanning_t : public state_t<owner>
@@ -138,7 +158,14 @@ class gimbal_t final
             void exit(owner *owner) override;
         };
 
-        struct state_tracking_t : public state_t<owner>
+        struct state_manual_t : public state_t<owner>
+        {
+            void enter(owner *owner) override;
+            void execute(owner *owner) override;
+            void exit(owner *owner) override;
+        };
+
+        struct fsm_tracking_t : public fsm_t<owner>
         {
             struct state_turning_fine_t : public state_t<owner>
             {
@@ -154,31 +181,31 @@ class gimbal_t final
                 void exit(owner *owner) override;
             };
 
-            void enter(owner *owner) override;
-            void execute(owner *owner) override;
-            void exit(owner *owner) override;
+            void on_enter(owner *owner) override;
+            void on_execute(owner *owner) override;
+            void on_exit(owner *owner) override;
 
           private:
             state_turning_fine_t _turning_fine_state;
             state_turning_coarse_t _turning_coarse_state;
         };
 
-        void enter(owner *owner) override;
-        void execute(owner *owner) override;
-        void exit(owner *owner) override;
+        void on_enter(owner *owner) override;
+        void on_execute(owner *owner) override;
+        void on_exit(owner *owner) override;
 
       private:
         state_scanning_t _scanning_state;
-        state_tracking_t _tracking_state;
+        state_manual_t _manual_state;
+        fsm_tracking_t _tracking_state;
     };
 
     state_passive_t _passive_state;
-    state_active_t _active_state;
+    fsm_active_t _active_state;
     fsm_t<owner> _main_fsm;
-
 };
 
 
-}
+} // namespace pyro
 
 #endif

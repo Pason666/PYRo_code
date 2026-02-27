@@ -17,15 +17,15 @@ void rud_chassis_t::fsm_active_t::on_enter(owner *owner)
 
 void rud_chassis_t::fsm_active_t::on_execute(owner *owner)
 {
-    if (rud_chassis_t::drive_mode_t::MOVING == owner->_ctx.drive_mode)
+    if (drive_mode_t::MOVING == owner->_ctx.drive_mode)
     {
         this->change_state(&_moving_state);
     }
-    else if (rud_chassis_t::drive_mode_t::BRAKING == owner->_ctx.drive_mode)
+    else if (drive_mode_t::BRAKING == owner->_ctx.drive_mode)
     {
         this->change_state(&_braking_state);
     }
-    else if (rud_chassis_t::drive_mode_t::TURNING == owner->_ctx.drive_mode)
+    else if (drive_mode_t::TURNING == owner->_ctx.drive_mode)
     {
         this->change_state(&_turning_state);
     }
