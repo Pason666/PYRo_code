@@ -1,5 +1,4 @@
 #include "pyro_core_config.h"
-#if ROBOT_ID == SENTRY_ID
 #if BOARD_ID == GIMBAL_ID
 
 #include "pyro_module_base.h"
@@ -62,7 +61,7 @@ extern "C"
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            gimbal_cmd_ptr->target_pitch_angle -= p_ctrl->rc.ch_ly * 0.001f;
+            gimbal_cmd_ptr->target_pitch_angle -= p_ctrl->rc.ch_ry * 0.001f;
             if (gimbal_cmd_ptr->target_pitch_angle >
                 gimbal_cfg_ptr->pitch_max_rad)
                 gimbal_cmd_ptr->target_pitch_angle =
@@ -71,7 +70,7 @@ extern "C"
                 gimbal_cfg_ptr->pitch_min_rad)
                 gimbal_cmd_ptr->target_pitch_angle =
                     gimbal_cfg_ptr->pitch_min_rad;
-            gimbal_cmd_ptr->target_yaw_angle -= p_ctrl->rc.ch_lx * 0.005f;
+            gimbal_cmd_ptr->target_yaw_angle -= p_ctrl->rc.ch_rx * 0.005f;
             if (gimbal_cmd_ptr->target_yaw_angle > gimbal_cfg_ptr->yaw_max_rad)
                 gimbal_cmd_ptr->target_yaw_angle = gimbal_cfg_ptr->yaw_max_rad;
             if (gimbal_cmd_ptr->target_yaw_angle < gimbal_cfg_ptr->yaw_min_rad)
@@ -79,16 +78,71 @@ extern "C"
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
-            gimbal_cmd_ptr->mode               = gimbal_cmd_t::mode_t::PASSIVE;
-            gimbal_cmd_ptr->target_pitch_angle = 0.0f;
-            gimbal_cmd_ptr->target_yaw_angle   = 0.0f;
+            gimbal_cmd_ptr->mode               = gimbal_cmd_t::mode_t::ACTIVE;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
         }
     }
+
+    void chassis_rc2cmd(void const *rc_ctrl)
+    {
+        read_scope_lock lock(
+            rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
+        static auto *p_ctrl =
+            static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
+
+        static int8_t vx        = 0;
+        static int8_t vy        = 0;
+        static int8_t wz        = 0;
+        static int8_t delta_yaw = 0;
+        static bool active      = false;
+        static bool follow_yaw  = false;
+
+        can_tx_drv_t::clear(0x101);
+
+        if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
+        {
+            vx         = 0;
+            vy         = 0;
+            wz         = 0;
+            delta_yaw  = 0;
+            active     = false;
+            follow_yaw = false;
+        }
+        else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
+        {
+            vx         = static_cast<int8_t>(p_ctrl->rc.ch_lx * 127);
+            vy         = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
+            wz         = 0;
+            delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
+            active     = true;
+            follow_yaw = true;
+        }
+        else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+        {
+            vx         = static_cast<int8_t>(p_ctrl->rc.ch_lx * 127);
+            vy         = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
+            wz         = 2;
+            delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
+            active     = true;
+            follow_yaw = false;
+        }
+
+        can_tx_drv_t::add_data(0x101, 8, vx);
+        can_tx_drv_t::add_data(0x101, 8, vy);
+        can_tx_drv_t::add_data(0x101, 8, wz);
+        can_tx_drv_t::add_data(0x101, 8, delta_yaw);
+        can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(follow_yaw));
+        can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(active));
+        can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
+                                      can_hub_t::which_can::can3));
+    }
+
 
     void sentry_gimbal_thread(void *argument)
     {
         while (true)
         {
+            chassis_rc2cmd(rc_ctrl_ptr);
             gimbal_rc2cmd(rc_ctrl_ptr);
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
             vTaskDelay(1);
@@ -113,5 +167,4 @@ extern "C"
     }
 }
 
-#endif
 #endif

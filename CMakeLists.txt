@@ -212,9 +212,9 @@ elseif(ROBOT_ID EQUAL SENTRY_ID)
             PYRo/Module/Chassis/Rudder/pyro_rud_chassis.cpp
             PYRo/Module/Chassis/Rudder/fsm/pyro_rud_active_state.cpp
             PYRo/Module/Chassis/Rudder/fsm/pyro_rud_passive_state.cpp
-            PYRo/Module/Chassis/Rudder/fsm/pyro_rud_moving_state.cpp
-            PYRo/Module/Chassis/Rudder/fsm/pyro_rud_braking_state.cpp
-            PYRo/Module/Chassis/Rudder/fsm/pyro_rud_turning_state.cpp           
+#            PYRo/Module/Chassis/Rudder/fsm/pyro_rud_moving_state.cpp
+#            PYRo/Module/Chassis/Rudder/fsm/pyro_rud_braking_state.cpp
+#            PYRo/Module/Chassis/Rudder/fsm/pyro_rud_turning_state.cpp
             
             PYRo/Module/Yaw/pyro_yaw.cpp
             PYRo/Module/Yaw/fsm/pyro_yaw_passive_state.cpp

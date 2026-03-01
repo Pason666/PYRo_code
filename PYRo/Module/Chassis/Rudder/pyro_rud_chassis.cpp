@@ -31,8 +31,8 @@ rud_chassis_t::rud_chassis_t()
 
 status_t rud_chassis_t::_init()
 {
-    _kinematics                             = new rudder_kin_t(0.36f, 0.36f);
-    _ctx.rud_config                         = _module_deps;
+    _kinematics               = new rudder_kin_t(0.36f, 0.36f);
+    _ctx.rud_config           = _module_deps;
     _ctx.hardware.power_meter = new powermeter_drv_t(0x212, can_hub_t::can2);
     _ctx.power.data           = new powermeter_data();
     return PYRO_OK;
@@ -100,10 +100,30 @@ void rud_chassis_t::_update_feedback()
 
 void rud_chassis_t::_kinematics_solve()
 {
-    if (_ctx.cmd->follow_yaw == true)
+    if (_ctx.cmd->mode == rud_cmd_t::mode_t::PASSIVE)
     {
-        _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-            0, _ctx.cmd->yaw_error);
+        _ctx.cmd->vx        = 0.0f;
+        _ctx.cmd->vy        = 0.0f;
+        _ctx.cmd->wz        = 0.0f;
+        _ctx.cmd->yaw_error = 0.0f;
+    }
+    else if (_ctx.cmd->mode == rud_cmd_t::mode_t::ACTIVE)
+    {
+        if (_ctx.cmd->follow_yaw == true)
+        {
+            _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                0, _ctx.cmd->yaw_error);
+        }
+        else if (_ctx.cmd->follow_yaw == false)
+        {
+            const float vx = _ctx.cmd->vx;
+            const float vy = _ctx.cmd->vy;
+            _ctx.cmd->vx =
+                vx * cosf(_ctx.cmd->yaw_error) - vy * sinf(_ctx.cmd->yaw_error);
+            _ctx.cmd->vy =
+                vx * sinf(_ctx.cmd->yaw_error) + vy * cosf(_ctx.cmd->yaw_error);
+            _ctx.cmd->wz = 2.0f;
+        }
     }
     _ctx.data.target_states = _kinematics->solve(
         _ctx.cmd->vx, _ctx.cmd->vy, _ctx.cmd->wz, _ctx.data.current_states);

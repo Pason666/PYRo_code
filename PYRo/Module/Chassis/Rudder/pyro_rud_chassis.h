@@ -136,42 +136,51 @@ class rud_chassis_t final
         void exit(owner *owner) override;
     };
 
-    struct fsm_active_t : public fsm_t<owner>
+    // struct fsm_active_t : public fsm_t<owner>
+    // {
+    //     // 子状态
+    //     struct state_moving_t : public state_t<owner>
+    //     {
+    //         void enter(owner *owner) override;
+    //         void execute(owner *owner) override;
+    //         void exit(owner *owner) override;
+    //     };
+    //
+    //     struct state_braking_t : public state_t<owner>
+    //     {
+    //         void enter(owner *owner) override;
+    //         void execute(owner *owner) override;
+    //         void exit(owner *owner) override;
+    //     };
+    //
+    //     struct state_turning_t : public state_t<owner>
+    //     {
+    //         void enter(owner *owner) override;
+    //         void execute(owner *owner) override;
+    //         void exit(owner *owner) override;
+    //     };
+    //
+    //     void on_enter(owner *owner) override;
+    //     void on_execute(owner *owner) override;
+    //     void on_exit(owner *owner) override;
+    //
+    //   private:
+    //     state_moving_t _moving_state;
+    //     state_braking_t _braking_state;
+    //     state_turning_t _turning_state;
+    // };
+
+    struct state_active_t : public state_t<owner>
     {
-        // 子状态
-        struct state_moving_t : public state_t<owner>
-        {
-            void enter(owner *owner) override;
-            void execute(owner *owner) override;
-            void exit(owner *owner) override;
-        };
-
-        struct state_braking_t : public state_t<owner>
-        {
-            void enter(owner *owner) override;
-            void execute(owner *owner) override;
-            void exit(owner *owner) override;
-        };
-
-        struct state_turning_t : public state_t<owner>
-        {
-            void enter(owner *owner) override;
-            void execute(owner *owner) override;
-            void exit(owner *owner) override;
-        };
-
-        void on_enter(owner *owner) override;
-        void on_execute(owner *owner) override;
-        void on_exit(owner *owner) override;
-
-      private:
-        state_moving_t _moving_state;
-        state_braking_t _braking_state;
-        state_turning_t _turning_state;
+        void enter(owner *owner) override;
+        void execute(owner *owner) override;
+        void exit(owner *owner) override;
     };
 
     state_passive_t _state_passive;
-    fsm_active_t _state_active;
+    state_active_t _state_active;
+    // fsm_active_t _state_active;
+
     fsm_t<owner> _main_fsm;
 
     static constexpr float RUD_RADIUS         = 0.060f;

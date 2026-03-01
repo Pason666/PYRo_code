@@ -47,11 +47,7 @@ void gimbal_t::_update_feedback()
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
-    //  获取目标pitch弧度
-    ctx->data.target_pitch_rad = ctx->cmd->target_pitch_angle;
     wrap_pi(ctx->data.target_pitch_rad);
-
-
     // pitch轴位置环
     ctx->data.target_pitch_radps =
         ctx->gimbal_config.pid.pitch_pos_pid->calculate(
@@ -62,11 +58,7 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps);
 
-    // 获取目标yaw弧度
-    ctx->data.target_yaw_rad = ctx->cmd->target_yaw_angle;
     wrap_pi(ctx->data.target_yaw_rad);
-
-
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);

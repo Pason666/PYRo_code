@@ -4,10 +4,10 @@ namespace pyro
 {
 enum
 {
-    UP    = 0,
-    DOWN  = 1,
-    Left  = 0,
-    Right = 1,
+    DOWN  = 0,
+    UP    = 1,
+    Right = 0,
+    Left  = 1,
 };
 
 bool pitch_direction = UP;
@@ -21,24 +21,32 @@ void gimbal_t::fsm_active_t::state_scanning_t::execute(owner *owner)
 {
     if (pitch_direction)
     {
-        // owner->_ctx.data.target_pitch_rad -= 0.01f;
-        // 加入判断pitch仰角是否到下限的判断
+        owner->_ctx.data.target_pitch_rad += 0.0002f;
+        if (owner->_ctx.data.target_pitch_rad >=
+            owner->_ctx.gimbal_config.pitch_max_rad)
+            pitch_direction = DOWN;
     }
     else
     {
-        // owner->_ctx.data.target_pitch_rad += 0.01f;
-        // 加入判断pitch仰角是否到上限的判断
+        owner->_ctx.data.target_pitch_rad -= 0.0002f;
+        if (owner->_ctx.data.target_pitch_rad <=
+            owner->_ctx.gimbal_config.pitch_min_rad)
+            pitch_direction = UP;
     }
 
     if (yaw_direction)
     {
-        // owner->_ctx.data.target_yaw_rad += 0.01f;
-        // 加入判断yaw偏角是否到最右的判断
+        owner->_ctx.data.target_yaw_rad += 0.0004f;
+        if (owner->_ctx.data.target_yaw_rad >=
+            owner->_ctx.gimbal_config.yaw_max_rad)
+            yaw_direction = Right;
     }
     else
     {
-        // owner->_ctx.data.target_yaw_rad -= 0.01f;
-        // 加入判断yaw偏角是否到最左的判断
+        owner->_ctx.data.target_yaw_rad -= 0.0004f;
+        if (owner->_ctx.data.target_yaw_rad <=
+            owner->_ctx.gimbal_config.yaw_min_rad)
+            yaw_direction = Left;
     }
 
     _gimbal_control(&owner->_ctx);

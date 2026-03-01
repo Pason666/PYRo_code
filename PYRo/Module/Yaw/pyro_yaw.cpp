@@ -3,10 +3,8 @@
 //
 #include "pyro_yaw.h"
 
-float cangle     = 0.0f;
-float tangle     = 0.0f;
-float imu_cangle = 0.0f;
-float cyaw       = 0.0f;
+float cangle = 0.0f;
+float cradps = 0.0f;
 
 namespace pyro
 {
@@ -65,15 +63,18 @@ float yaw_t::get_yaw_error() const
 
 status_t yaw_t::_init()
 {
-    if (_module_deps.motor.yaw == nullptr) {
+    if (_module_deps.motor.yaw == nullptr)
+    {
         // 电机指针未初始化，返回错误码
         return PYRO_ERROR;
     }
-    if (_module_deps.pid.yaw_pos_pid == nullptr || _module_deps.pid.yaw_spd_pid == nullptr) {
+    if (_module_deps.pid.yaw_pos_pid == nullptr ||
+        _module_deps.pid.yaw_spd_pid == nullptr)
+    {
         // PID 指针未初始化，返回错误
         return PYRO_ERROR;
     }
-    _ctx.yaw_config        = _module_deps;
+    _ctx.yaw_config = _module_deps;
     return PYRO_OK;
 }
 
@@ -86,7 +87,6 @@ void yaw_t::_update_feedback()
     _ctx.data.current_yaw_angle =
         wrap_pi(_ctx.yaw_config.motor.yaw->get_current_position() -
                 _ctx.yaw_config.yaw_offset);
-    cyaw = _ctx.data.current_yaw_angle;
 
     // 这里需要获取底盘imu数据减去大yaw的机械角度得到yaw轴的imu角度
     ins->get_angles_n(&yaw, &pitch, &roll);
@@ -109,16 +109,22 @@ void yaw_t::_yaw_control(yaw_ctx_t *ctx)
     ctx->data.target_yaw_imu_angle = ctx->cmd->target_yaw_imu_angle;
 
     cangle                         = ctx->data.current_yaw_angle;
-    tangle                         = ctx->data.target_yaw_imu_angle;
-    imu_cangle                     = ctx->data.gimbal_world_yaw;
 
     float world_yaw_error =
         calculate_yaw_error(ctx->data.target_yaw_imu_angle,
                             ctx->data.gimbal_world_yaw, yaw_rotation_loops);
 
-    float yaw_pos_output =
-        ctx->yaw_config.pid.yaw_pos_pid->calculate(0, world_yaw_error);
-
+    float yaw_pos_output = 0.0f;
+    // if (abs(world_yaw_error) > 0.005f)
+        yaw_pos_output =
+            ctx->yaw_config.pid.yaw_pos_pid->calculate(0, world_yaw_error);
+    // else
+    // {
+    //     auto *yaw_pos_pid =
+    //         new pid_t(50.0f, 0.001f, 0.012f, 0.3f, 6.5f, 15, 30, 4);
+    //     yaw_pos_output = yaw_pos_pid->calculate(0, world_yaw_error);
+    // }
+    cradps                   = ctx->data.current_yaw_radps;
     ctx->data.out_yaw_torque = ctx->yaw_config.pid.yaw_spd_pid->calculate(
         yaw_pos_output, ctx->data.current_yaw_radps);
 }

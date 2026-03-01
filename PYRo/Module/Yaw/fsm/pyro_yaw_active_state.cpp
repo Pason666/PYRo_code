@@ -12,6 +12,7 @@ void yaw_t::state_active_t::enter(owner *owner)
 
 void yaw_t::state_active_t::execute(owner *owner)
 {
+    if (owner->_ctx.cmd->)
     _yaw_control(&owner->_ctx);
     _send_motor_command(&owner->_ctx);
 }
