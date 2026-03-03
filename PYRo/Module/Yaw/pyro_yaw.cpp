@@ -10,6 +10,7 @@ namespace pyro
 {
 
 float yaw{}, pitch{}, roll{};
+float chassis_yaw_radps{}, chassis_pitch_radps{}, chassis_roll_radps{};
 
 yaw_t::yaw_t() : module_base_t("yaw", 512, 512, task_base_t::priority_t::HIGH)
 {
@@ -56,11 +57,11 @@ void yaw_t::_update_feedback()
 
     // 这里需要获取底盘imu数据减去大yaw的机械角度得到yaw轴的imu角度
     ins->get_angles_n(&yaw, &pitch, &roll);
+    ins->get_gyro_n(&chassis_yaw_radps, &chassis_pitch_radps, &chassis_roll_radps);
     _ctx.data.chassis_world_yaw = yaw / 180 * PI;
     _ctx.data.gimbal_world_yaw =
         wrap_pi(_ctx.data.chassis_world_yaw - _ctx.data.current_yaw_angle);
-
-
+    _ctx.data.chassis_wz = chassis_yaw_radps;
 
     _ctx.data.current_yaw_imu_angle =
         wrap_pi(yaw - _ctx.data.current_yaw_angle);

@@ -82,6 +82,7 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
         float out_yaw_radps;
         float out_yaw_torque;
         float world_yaw_error;
+        float chassis_wz;
     };
 
     struct yaw_ctx_t
