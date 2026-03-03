@@ -2,7 +2,7 @@
  * @Author: Vod vod0575@outlook
  * @Date: 2026-02-06 19:32:10
  * @LastEditors: vod vod_x@outlook.com
- * @LastEditTime: 2026-02-07 22:35:40
+ * @LastEditTime: 2026-02-26 14:43:33
  * @Description: 
  * The kinematic solve algorithm for wheel legged robot. If you want to use,
  * define a variable which type is wheel_legged_kin_t, than call its init 
@@ -158,13 +158,14 @@ private:
     /* Flag to check whether the solver is initialized, 0 for not initialized,
         1 for initialized.*/
     uint8_t _is_inited{0};
-    
+   
     /* The cofficients for phi solve */
     phi_k_t _phi_k;
     /* The cofficients for polar coordinates solve */
     polar_k_t _polar_k;
     /* The cofficients for VMC transform matrix */
     vmc_k_t _vmc_k;
+
 
 };
 }

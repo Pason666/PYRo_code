@@ -51,7 +51,7 @@ extern "C"
 
         supercap_drv_t::get_instance()->start_rx();
 
-        vTaskDelete(nullptr);
+        // vTaskDelete(nullptr);
     }
 }
 } // namespace pyro

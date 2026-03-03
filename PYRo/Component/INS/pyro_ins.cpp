@@ -192,7 +192,7 @@ void ins_drv_t::__ins_task()
 
         IMU_QuaternionEKF_Update(_gyro_b[X], _gyro_b[Y], _gyro_b[Z], _acc_b[X],
                                  _acc_b[Y], _acc_b[Z], _dt);
-        memcpy(_q, QEKF_INS.q, sizeof(QEKF_INS.q));
+       memcpy(_q, QEKF_INS.q, sizeof(QEKF_INS.q));
 
 
         _angle_n[X] = QEKF_INS.Roll;

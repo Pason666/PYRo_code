@@ -1,3 +1,12 @@
+/*
+ * @Author: vod vod_x@outlook.com
+ * @Date: 2026-02-28 15:56:04
+ * @LastEditors: vod vod_x@outlook.com
+ * @LastEditTime: 2026-02-28 16:02:41
+ * @Description: 
+ * 
+ * Copyright (c) 2026 by PeiYangRobot, All Rights Reserved. 
+ */
 #ifndef __PYRO_CORE_CONFIG_H__
 #define __PYRO_CORE_CONFIG_H__
 
