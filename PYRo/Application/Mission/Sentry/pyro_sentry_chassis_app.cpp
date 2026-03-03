@@ -7,6 +7,7 @@
 #include "pyro_rc_hub.h"
 #include "pyro_com_canrx.h"
 #include "pyro_yaw.h"
+#include "pyro_uart_drv.h"
 using namespace pyro;
 
 rud_chassis_t *rud_chassis_ptr             = nullptr;
@@ -107,7 +108,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
     yaw_cfg.pid.yaw_pos_pid =
-        new pid_t(50.0f, 0.05f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
+        new pid_t(50.0f, 0.0f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
     yaw_cfg.pid.yaw_spd_pid =
         new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3.0f, 15, 150, 4);
 
@@ -120,7 +121,7 @@ extern "C"
     {
         std::array<uint8_t, 8> raw_data{};
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x101, raw_data);
-        if (static_cast<bool>(static_cast<int8_t>(raw_data[5])))
+        if (static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 1)) & 0x01)
         {
             rud_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
@@ -132,7 +133,7 @@ extern "C"
         }
 
         rud_cmd_ptr->follow_yaw =
-            static_cast<bool>(static_cast<int8_t>(raw_data[4]));
+            static_cast<bool>(raw_data[4] & 0x01);
         rud_cmd_ptr->vx =
             2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) / 127.0f;
         rud_cmd_ptr->vy =
@@ -142,10 +143,15 @@ extern "C"
         yaw_cmd_ptr->target_yaw_imu_angle -=
             static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
             0.003f;
-
+        yaw_cmd_ptr->scanning =
+            static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
         rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
     }
 
+    void chassis_pc2cmd()
+    {
+
+    }
     void sentry_chassis_thread(void *argument)
     {
         while (true)

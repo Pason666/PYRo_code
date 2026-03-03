@@ -12,6 +12,7 @@ void yaw_t::state_passive_t::enter(owner *owner)
 
 void yaw_t::state_passive_t::execute(owner *owner)
 {
+    owner->_ctx.data.out_yaw_radps = 0.0f;
     owner->_ctx.yaw_config.motor.yaw->send_torque(0);
 }
 

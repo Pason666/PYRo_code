@@ -219,6 +219,8 @@ elseif(ROBOT_ID EQUAL SENTRY_ID)
             PYRo/Module/Yaw/pyro_yaw.cpp
             PYRo/Module/Yaw/fsm/pyro_yaw_passive_state.cpp
             PYRo/Module/Yaw/fsm/pyro_yaw_active_state.cpp
+            PYRo/Module/Yaw/fsm/pyro_yaw_manual_state.cpp
+            PYRo/Module/Yaw/fsm/pyro_yaw_scanning_state.cpp
 
             PYRo/Module/Gimbal/Sentry/pyro_sentry_gimbal.cpp
             PYRo/Module/Gimbal/Sentry/fsm/pyro_sentry_gimbal_active_state.cpp

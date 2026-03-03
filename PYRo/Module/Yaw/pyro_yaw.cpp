@@ -10,45 +10,11 @@ namespace pyro
 {
 
 float yaw{}, pitch{}, roll{};
-int yaw_rotation_loops = 0;
-float wrap_pi(float angle)
-{
-    while (angle > PI)
-        angle -= 2 * PI;
-    while (angle < -PI)
-        angle += 2 * PI;
-    return angle;
-}
 
 yaw_t::yaw_t() : module_base_t("yaw", 512, 512, task_base_t::priority_t::HIGH)
 {
     _ctx.data  = {};
     debug_data = {};
-}
-
-float calculate_yaw_error(float target, float current, int &loops)
-{
-    float target_wrap = wrap_pi(target);
-    int target_loops  = static_cast<int>((target - target_wrap) / (2 * PI));
-
-    // 2. 计算当前实际角度（回绕角度 + 累计圈数×2π）
-    float current_continuous = current + loops * 2 * PI;
-    // 3. 计算目标实际角度
-    float target_continuous  = target_wrap + target_loops * 2 * PI;
-
-    // 4. 修正累计圈数（处理跨±π的跳变）
-    float delta              = target_continuous - current_continuous;
-    if (delta > PI)
-    {
-        loops += 1; // 逆时针跨π，圈数+1
-    }
-    else if (delta < -PI)
-    {
-        loops -= 1; // 顺时针跨π，圈数-1
-    }
-
-    current_continuous = current + loops * 2 * PI;
-    return target_continuous - current_continuous;
 }
 
 float yaw_t::get_yaw_error() const
@@ -106,27 +72,12 @@ void yaw_t::_update_feedback()
 
 void yaw_t::_yaw_control(yaw_ctx_t *ctx)
 {
-    ctx->data.target_yaw_imu_angle = ctx->cmd->target_yaw_imu_angle;
+    cangle                         = ctx->cmd->target_yaw_imu_angle;
 
-    cangle                         = ctx->data.current_yaw_angle;
-
-    float world_yaw_error =
-        calculate_yaw_error(ctx->data.target_yaw_imu_angle,
-                            ctx->data.gimbal_world_yaw, yaw_rotation_loops);
-
-    float yaw_pos_output = 0.0f;
-    // if (abs(world_yaw_error) > 0.005f)
-        yaw_pos_output =
-            ctx->yaw_config.pid.yaw_pos_pid->calculate(0, world_yaw_error);
-    // else
-    // {
-    //     auto *yaw_pos_pid =
-    //         new pid_t(50.0f, 0.001f, 0.012f, 0.3f, 6.5f, 15, 30, 4);
-    //     yaw_pos_output = yaw_pos_pid->calculate(0, world_yaw_error);
-    // }
     cradps                   = ctx->data.current_yaw_radps;
+
     ctx->data.out_yaw_torque = ctx->yaw_config.pid.yaw_spd_pid->calculate(
-        yaw_pos_output, ctx->data.current_yaw_radps);
+        ctx->data.out_yaw_radps, ctx->data.current_yaw_radps);
 }
 
 void yaw_t::_send_motor_command(yaw_ctx_t *ctx)
@@ -139,9 +90,9 @@ void yaw_t::_fsm_execute()
     _ctx.cmd = &_current_cmd;
 
     if (cmd_base_t::mode_t::PASSIVE == _ctx.cmd->mode)
-        _main_fsm.change_state(&_state_passive);
+        _main_fsm.change_state(&_passive_state);
     else if (cmd_base_t::mode_t::ACTIVE == _ctx.cmd->mode)
-        _main_fsm.change_state(&_state_active);
+        _main_fsm.change_state(&_active_state);
 
     _main_fsm.execute(this);
 }

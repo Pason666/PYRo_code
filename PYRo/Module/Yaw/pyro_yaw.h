@@ -7,6 +7,7 @@
 
 #include "pyro_module_base.h"
 #include "pyro_algo_pid.h"
+#include "pyro_algo_common.h"
 #include "pyro_dji_motor_drv.h"
 #include "pyro_dm_motor_drv.h"
 #include "pyro_motor_base.h"
@@ -17,8 +18,9 @@ namespace pyro
 struct yaw_cmd_t : cmd_base_t
 {
     float target_yaw_imu_angle;
+    bool scanning;
 
-    yaw_cmd_t() : target_yaw_imu_angle(0)
+    yaw_cmd_t() : target_yaw_imu_angle(0), scanning(false)
     {
     }
 };
@@ -54,7 +56,7 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
     yaw_t(const yaw_t &)            = delete;
     yaw_t &operator=(const yaw_t &) = delete;
 
-    float get_yaw_error() const;
+    [[nodiscard]] float get_yaw_error() const;
 
   private:
     yaw_t();
@@ -77,7 +79,9 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
         float current_yaw_imu_angle;
         float current_yaw_angle;
         float current_yaw_radps;
+        float out_yaw_radps;
         float out_yaw_torque;
+        float world_yaw_error;
     };
 
     struct yaw_ctx_t
@@ -93,7 +97,7 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
     };
 
     yaw_ctx_t _ctx;
-    debug_ctx_t debug_data;
+    debug_ctx_t debug_data{};
 
     using owner = yaw_t;
 
@@ -104,18 +108,36 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
         void exit(owner *owner) override;
     };
 
-    struct state_active_t : public state_t<owner>
+    struct fsm_active_t : public fsm_t<owner>
     {
-        void enter(owner *owner) override;
-        void execute(owner *owner) override;
-        void exit(owner *owner) override;
+        struct state_scanning_t : public state_t<owner>
+        {
+            void enter(owner *owner) override;
+            void execute(owner *owner) override;
+            void exit(owner *owner) override;
+        };
+
+        struct state_manual_t : public state_t<owner>
+        {
+            void enter(owner *owner) override;
+            void execute(owner *owner) override;
+            void exit(owner *owner) override;
+        };
+
+        void on_enter(owner *owner) override;
+        void on_execute(yaw_t *ctx) override;
+        void on_exit(owner *owner) override;
+
+      private:
+        state_scanning_t _scanning_state;
+        state_manual_t _manual_state;
     };
 
-    state_passive_t _state_passive;
-    state_active_t _state_active;
+    state_passive_t _passive_state;
+    fsm_active_t _active_state;
     fsm_t<owner> _main_fsm;
 };
 
 } // namespace pyro
 
-#endif // PYRO_PYRO_YAW_H
+#endif // PYRO_YAW_H

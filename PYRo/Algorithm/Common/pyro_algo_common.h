@@ -10,6 +10,8 @@ namespace pyro
 
 float wrap2pi_f32(float input);
 
+float wrap_pi(float input);
+
 float radps_to_rpm(float radps);
 
 float calculate_angle_diff(float current, float target);

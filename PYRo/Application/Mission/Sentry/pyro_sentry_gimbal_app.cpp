@@ -1,3 +1,4 @@
+#include "pyro_com_cantx.h"
 #include "pyro_core_config.h"
 #if BOARD_ID == GIMBAL_ID
 
@@ -78,7 +79,7 @@ extern "C"
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
-            gimbal_cmd_ptr->mode               = gimbal_cmd_t::mode_t::ACTIVE;
+            gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
         }
     }
@@ -96,6 +97,7 @@ extern "C"
         static int8_t delta_yaw = 0;
         static bool active      = false;
         static bool follow_yaw  = false;
+        static bool scanning    = false;
 
         can_tx_drv_t::clear(0x101);
 
@@ -105,8 +107,9 @@ extern "C"
             vy         = 0;
             wz         = 0;
             delta_yaw  = 0;
-            active     = false;
             follow_yaw = false;
+            active     = false;
+            scanning   = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
@@ -114,8 +117,9 @@ extern "C"
             vy         = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
             wz         = 0;
             delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
-            active     = true;
             follow_yaw = true;
+            active     = true;
+            scanning   = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
@@ -123,16 +127,18 @@ extern "C"
             vy         = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
             wz         = 2;
             delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
-            active     = true;
             follow_yaw = false;
+            active     = true;
+            scanning   = true;
         }
 
         can_tx_drv_t::add_data(0x101, 8, vx);
         can_tx_drv_t::add_data(0x101, 8, vy);
         can_tx_drv_t::add_data(0x101, 8, wz);
         can_tx_drv_t::add_data(0x101, 8, delta_yaw);
-        can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(follow_yaw));
-        can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(active));
+        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
+        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
+        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(scanning));
         can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
     }

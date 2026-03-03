@@ -5,19 +5,21 @@
 
 namespace pyro
 {
-void yaw_t::state_active_t::enter(owner *owner)
+void yaw_t::fsm_active_t::on_enter(owner *owner)
 {
     owner->_ctx.yaw_config.motor.yaw->enable();
 }
 
-void yaw_t::state_active_t::execute(owner *owner)
+void yaw_t::fsm_active_t::on_execute(owner *owner)
 {
-    if (owner->_ctx.cmd->)
-    _yaw_control(&owner->_ctx);
-    _send_motor_command(&owner->_ctx);
+    if (owner->_ctx.cmd->scanning)
+        this->change_state(&_scanning_state);
+    else
+        this->change_state(&_manual_state);
+
 }
 
-void yaw_t::state_active_t::exit(owner *owner)
+void yaw_t::fsm_active_t::on_exit(owner *owner)
 {
 }
 
