@@ -155,7 +155,7 @@ extern "C"
         }
     }
 
-    void sentry_gimbal_init(void *argument)
+    status_t sentry_gimbal_init(void *argument)
     {
         gimbal_cmd_ptr = new gimbal_cmd_t();
         gimbal_cfg_ptr = new gimbal_cfg_t();
@@ -170,6 +170,7 @@ extern "C"
         xTaskCreate(sentry_gimbal_thread, "sentry_gimbal_thread", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
         vTaskDelete(nullptr);
+        return PYRO_OK;
     }
 }
 

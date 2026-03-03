@@ -164,7 +164,7 @@ extern "C"
         }
     }
 
-    void sentry_chassis_init(void *argument)
+    status_t sentry_chassis_init(void *argument)
     {
         pyro::can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x101);
         rud_cmd_ptr     = new rud_cmd_t();
@@ -184,6 +184,7 @@ extern "C"
         xTaskCreate(sentry_chassis_thread, "sentry_chassis_thread", 512,
                     nullptr, configMAX_PRIORITIES - 1, nullptr);
         vTaskDelete(nullptr);
+        return PYRO_OK;
     }
 }
 

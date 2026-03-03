@@ -17,10 +17,10 @@ extern "C"
 #endif
 #elif ROBOT_ID == SENTRY_ID
 #if BOARD_ID == GIMBAL_ID
-    extern void sentry_gimbal_init(void *argument);
-    extern void sentry_booster_init(void *argument);
+    extern status_t sentry_gimbal_init(void *argument);
+    extern status_t sentry_booster_init(void *argument);
 #elif BOARD_ID == CHASSIS_ID
-    extern void sentry_chassis_init(void *argument);
+    extern status_t sentry_chassis_init(void *argument);
 #endif
 #endif
 #if ROBOT_ID == INFANTRY2_ID
@@ -42,13 +42,11 @@ extern "C"
 #endif
 #elif ROBOT_ID == SENTRY_ID
 #if BOARD_ID == GIMBAL_ID
-        xTaskCreate(sentry_gimbal_init, "pyro_sentry_gimbal_init", 512, nullptr,
-                    configMAX_PRIORITIES - 1, nullptr);
+        pyro_init_ret = sentry_gimbal_init(nullptr);
         // xTaskCreate(sentry_booster_init, "pyro_sentry_booster_init", 512, nullptr,
         //             configMAX_PRIORITIES - 1, nullptr);
 #elif BOARD_ID == CHASSIS_ID
-        xTaskCreate(sentry_chassis_init, "pyro_sentry_chassis_init", 512, nullptr,
-                    configMAX_PRIORITIES - 1, nullptr);
+        pyro_init_ret = sentry_chassis_init(nullptr);
 #endif
 #endif
 
