@@ -15,23 +15,33 @@ using namespace pyro;
 gimbal_t *gimbal_ptr                       = nullptr;
 gimbal_cmd_t *gimbal_cmd_ptr               = nullptr;
 gimbal_cfg_t *gimbal_cfg_ptr               = nullptr;
-uart_comm_t *comm                          = nullptr;
+// uart_comm_t *comm                          = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 
 struct FramHeader
 {
     uint8_t sof;
-    uint8_t crc8;
 } __attribute__((packed));
 
 FramHeader *framHeader = new FramHeader;
+
+struct InputData2
+{
+    float vx;
+    float vy;
+    float vz;
+    float wz;
+    uint8_t stuck;
+} __attribute__((packed));
+
+InputData2 inputData2;
 
 struct FramTailer
 {
     uint16_t crc16;
 } __attribute__((packed));
 
-FramTailer *framTailer = new FramTailer;
+FramTailer framTailer;
 
 struct InputData
 {
@@ -40,7 +50,7 @@ struct InputData
     float self_v_magnitude;
     float self_v_angle;
     uint8_t shoot_delay;
-    uint8_t state : 5;
+    uint8_t state       : 5;
     uint8_t stop_record : 1;
     uint8_t enemy_color : 1;
 } __attribute__((packed));
@@ -50,7 +60,7 @@ InputData inputData;
 struct Enter
 {
     char a;
-}__attribute__((packed));
+} __attribute__((packed));
 
 Enter enter_data;
 
@@ -62,7 +72,15 @@ struct send2pc
     Enter enter;
 } __attribute__((packed));
 
+struct send2nav
+{
+    FramHeader header;
+    InputData2 data;
+    FramTailer tailer;
+} __attribute__((packed));
+
 __attribute__((section(".dma_heap"))) send2pc send2pc_packet;
+__attribute__((section(".dma_heap"))) send2nav send2nav_packet;
 
 // struct SensorPacket
 // {
@@ -177,7 +195,8 @@ extern "C"
             vy         = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
             wz         = 0;
             delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
-            follow_yaw = true;
+            // follow_yaw = true;
+            follow_yaw = false;
             active     = true;
             scanning   = false;
         }
@@ -211,49 +230,63 @@ extern "C"
             chassis_rc2cmd(rc_ctrl_ptr);
             gimbal_rc2cmd(rc_ctrl_ptr);
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
-            comm->write(send2pc_packet);
-            if (comm->read(send2pc_packet))
-            {
-                if (send2pc_packet.header.sof == 0xA5)
-                {
-                    // ... 执行成功解析逻辑 ...
-                }
-            }
+
+            // comm->write(send2pc_packet);
+            // if (comm->read(send2pc_packet))
+            // {
+            //     if (send2pc_packet.header.sof == 0xA5)
+            //     {
+            //         // ... 执行成功解析逻辑 ...
+            //     }
+            // }
+            // comm->write(send2nav_packet);
+            // comm->read(send2nav_packet);
+
             vTaskDelay(5);
         }
     }
 
     status_t sentry_gimbal_init(void *argument)
     {
-        gimbal_cmd_ptr  = new gimbal_cmd_t();
-        gimbal_cfg_ptr  = new gimbal_cfg_t();
-        comm            = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
-        // uint8_t header = 0xAA;
-        // comm->register_msg_type(sizeof(rx_packet), &header,
-        // sizeof(rx_packet));
+        gimbal_cmd_ptr = new gimbal_cmd_t();
+        gimbal_cfg_ptr = new gimbal_cfg_t();
+        // comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
+        // // uint8_t header = 0xAA;
+        // comm->register_msg_type(sizeof(send2pc_packet),
+        //                         &send2pc_packet.header.sof,
+        //                         sizeof(send2pc_packet));
+        // comm->register_msg_type(sizeof(send2nav_packet),
+        //                         &send2nav_packet.header.sof,
+        //                         sizeof(send2nav_packet));
 
-        framHeader->sof = 0xA5;
-        framHeader->crc8      = 0x00;
-        send2pc_packet.header = *framHeader;
+        framHeader->sof            = 0xA5;
+        send2pc_packet.header      = *framHeader;
+        send2nav_packet.header     = *framHeader;
 
-        inputData.curr_yaw = 0.0f;
-        inputData.curr_pitch = 1.0f;
+        inputData.curr_yaw         = 0.0f;
+        inputData.curr_pitch       = 1.0f;
         inputData.self_v_magnitude = 2.0f;
-        inputData.self_v_angle  = 3.0f;
-        inputData.shoot_delay = 4.0f;
-        inputData.state = 5;
-        inputData.stop_record = 0;
-        inputData.enemy_color = 1;
+        inputData.self_v_angle     = 3.0f;
+        inputData.shoot_delay      = 4.0f;
+        inputData.state            = 5;
+        inputData.stop_record      = 0;
+        inputData.enemy_color      = 1;
 
-        enter_data.a = '\n';
+        inputData2.vx              = 1.0f;
 
-        send2pc_packet.data   = inputData;
+        enter_data.a               = '\n';
+
+        send2pc_packet.data        = inputData;
+        send2nav_packet.data       = inputData2;
+
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&send2pc_packet),
                                sizeof(send2pc_packet));
+        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&send2nav_packet),
+                               sizeof(send2nav_packet));
 
         send2pc_packet.enter = enter_data;
 
-        gimbal_ptr = gimbal_t::instance();
+        gimbal_ptr           = gimbal_t::instance();
         gimbal_config(*gimbal_cfg_ptr);
         gimbal_ptr->configure(*gimbal_cfg_ptr);
         gimbal_ptr->start();

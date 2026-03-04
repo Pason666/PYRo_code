@@ -127,7 +127,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         # --- Communication ---
         PYRo/Communication/pyro_com_cantx.cpp
         PYRo/Communication/pyro_com_canrx.cpp
-        PYRo/Communication/pyro_uart_comm.cpp
+#        PYRo/Communication/pyro_uart_comm.cpp
 
 
         # --- Device ---
