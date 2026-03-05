@@ -108,9 +108,9 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
     yaw_cfg.pid.yaw_pos_pid =
-        new pid_t(50.0f, 0.0f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
+        new pid_t(28, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
     yaw_cfg.pid.yaw_spd_pid =
-        new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3.0f, 15, 150, 4);
+        new pid_t(1.85, 0.0f, 0, 0.1f, 3.0f, 20, 10, 4);
 
     yaw_cfg.yaw_offset = -2.40028524f;
 }

@@ -22,9 +22,6 @@ float yaw_t::get_yaw_error() const
 {
     float world_yaw_error =
         wrap_pi(_ctx.data.gimbal_world_yaw - _ctx.data.chassis_world_yaw);
-    if (abs(world_yaw_error) < 0.005f)
-        return 0.0f;
-    else
         return world_yaw_error;
 }
 

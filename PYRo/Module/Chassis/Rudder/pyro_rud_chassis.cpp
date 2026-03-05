@@ -189,9 +189,6 @@ void rud_chassis_t::_send_motor_command(rud_ctx_t *ctx)
     {
         ctx->rud_config.motor.rudder[i]->send_torque(
             ctx->data.out_rud_torque[i]);
-        // ctx->rud_config.motor.rudder[i]->enable();
-        // ctx->rud_config.motor.rudder[i]->send_torque(
-        //     5.0f);
     }
 
     // 发送轮子扭矩命令

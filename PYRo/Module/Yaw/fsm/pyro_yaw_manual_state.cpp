@@ -2,6 +2,13 @@
 
 namespace pyro
 {
+float man_cyaw_rad;
+float man_tyaw_rad = 0;
+float man_cyaw_radps;
+float man_tyaw_radps;
+float man_wz;
+
+
 int yaw_rotation_loops = 0;
 
 float calculate_yaw_error(float target, float current, int &loops)
@@ -39,12 +46,20 @@ void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
         owner->_ctx.cmd->target_yaw_imu_angle,
         owner->_ctx.data.gimbal_world_yaw, yaw_rotation_loops);
 
+    man_cyaw_rad   = owner->_ctx.data.world_yaw_error;
+    man_tyaw_radps =
+        owner->_ctx.data.chassis_wz * 3 + owner->_ctx.data.out_yaw_radps;
+    man_cyaw_radps = owner->_ctx.data.current_yaw_radps;
+    man_wz = owner->_ctx.data.chassis_wz * 3;
+
+
     owner->_ctx.data.out_yaw_radps =
         owner->_ctx.yaw_config.pid.yaw_pos_pid->calculate(
             0, owner->_ctx.data.world_yaw_error);
     owner->_ctx.data.out_yaw_torque =
         owner->_ctx.yaw_config.pid.yaw_spd_pid->calculate(
-            owner->_ctx.data.out_yaw_radps - owner->_ctx.data.chassis_wz,
+            owner->_ctx.data.out_yaw_radps
+            + owner->_ctx.data.chassis_wz * 3,
             owner->_ctx.data.current_yaw_radps);
 
     // _yaw_control(&owner->_ctx);
