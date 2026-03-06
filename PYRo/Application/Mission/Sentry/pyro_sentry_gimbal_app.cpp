@@ -32,17 +32,22 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 
     gimbal_cfg.pitch_max_rad = 0.13f;
     gimbal_cfg.pitch_min_rad = -0.17f;
-    gimbal_cfg.yaw_max_rad   = 0.75f;
-    gimbal_cfg.yaw_min_rad   = -0.75f;
+    gimbal_cfg.yaw_max_rad   = 0.70f;
+    gimbal_cfg.yaw_min_rad   = -0.70f;
 
     gimbal_cfg.pid.pitch_pos_pid =
         new pid_t(50.0f, 0.05f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
     gimbal_cfg.pid.pitch_spd_pid =
         new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3.0f, 15, 150, 4);
     gimbal_cfg.pid.yaw_pos_pid =
-        new pid_t(30.0f, 0.05f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
+        new pid_t(15.0f, 1.0f, 0.09f, 5, 10.0f, 15, 150, 4);
     gimbal_cfg.pid.yaw_spd_pid =
-        new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3.0f, 15, 150, 4);
+        new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 6, 15, 150, 4);
+
+    // gimbal_cfg.pid.yaw_pos_pid =
+    //     new pid_t(0.5f, 0, 0.09f, 5, 10.0f);
+    // gimbal_cfg.pid.yaw_spd_pid =
+    //     new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3);
 
     gimbal_cfg.pitch_offset = 0.27f;
     gimbal_cfg.yaw_offset   = 2.05022361f;
@@ -115,6 +120,7 @@ extern "C"
             follow_yaw = false;
             active     = false;
             scanning   = false;
+            memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
@@ -125,6 +131,7 @@ extern "C"
             follow_yaw = true;
             active     = true;
             scanning   = false;
+            memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {

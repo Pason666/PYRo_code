@@ -8,7 +8,6 @@
 #include "pyro_dji_motor_drv.h"
 #include "pyro_dm_motor_drv.h"
 #include "pyro_kin_rudder.h"
-#include "pyro_motor_base.h"
 #include "pyro_powermeter.h"
 #include "pyro_power_control_drv.h"
 
@@ -52,7 +51,6 @@ class rud_chassis_t final
     : public module_base_t<rud_chassis_t, rud_cmd_t, rud_cfg_t>
 {
     friend class module_base_t;
-    friend class chassis_base_t;
     friend class vofa_drv_t;
 
     struct motor_ctx_t;
@@ -85,8 +83,7 @@ class rud_chassis_t final
         rudder_kin_t::rudder_states_t current_states{};
         rudder_kin_t::rudder_states_t target_states{};
 
-        float current_rud_radps[4];
-
+        float current_rud_radps[4]{};
         float out_rud_torque[4]{};
         float out_wheel_torque[4]{};
     };

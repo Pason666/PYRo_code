@@ -43,6 +43,7 @@ extern "C"
 #elif ROBOT_ID == SENTRY_ID
 #if BOARD_ID == GIMBAL_ID
         pyro_init_ret = sentry_gimbal_init(nullptr);
+        pyro_init_ret = sentry_booster_init(nullptr);
         // xTaskCreate(sentry_booster_init, "pyro_sentry_booster_init", 512, nullptr,
         //             configMAX_PRIORITIES - 1, nullptr);
 #elif BOARD_ID == CHASSIS_ID

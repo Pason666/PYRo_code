@@ -51,8 +51,6 @@ void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
         owner->_ctx.data.chassis_wz * 3 + owner->_ctx.data.out_yaw_radps;
     man_cyaw_radps = owner->_ctx.data.current_yaw_radps;
     man_wz = owner->_ctx.data.chassis_wz * 3;
-
-
     owner->_ctx.data.out_yaw_radps =
         owner->_ctx.yaw_config.pid.yaw_pos_pid->calculate(
             0, owner->_ctx.data.world_yaw_error);

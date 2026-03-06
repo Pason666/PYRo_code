@@ -1,0 +1,83 @@
+#include "pyro_core_config.h"
+#if BOARD_ID == GIMBAL_ID
+
+#include "pyro_module_base.h"
+#include "pyro_17mm_booster.h"
+#include "pyro_mutex.h"
+#include "pyro_rc_hub.h"
+#include "pyro_uart_drv.h"
+using namespace pyro;
+
+shoot_17mm_control_t *booster_ptr          = nullptr;
+booster_cmd_t *booster_cmd_ptr             = nullptr;
+booster_cfg_t *booster_cfg_ptr             = nullptr;
+dr16_drv_t::dr16_ctrl_t const *rc_ptr = nullptr;
+
+void booster_config(booster_cfg_t &cfg)
+{
+    cfg.motor.fric[0] =
+        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can3);
+    cfg.motor.fric[1] =
+        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can3);
+    cfg.motor.trigger =
+        new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can3);
+
+    cfg.pid.fric_pid[0]  = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+    cfg.pid.fric_pid[1]  = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+    cfg.pid.trig_pos_pid = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+    cfg.pid.trig_spd_pid = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+}
+
+extern "C"
+{
+    void booster_rc2cmd(void const *rc_ctrl)
+    {
+        read_scope_lock lock(
+            rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
+        static auto *p_ctrl =
+            static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
+
+        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
+            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+        {
+            booster_cmd_ptr->is_fric_on = true;
+        }
+        else
+            booster_cmd_ptr->is_fric_on = false;
+
+        if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl)
+            booster_cmd_ptr->single_shoot = true;
+        if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+            booster_cmd_ptr->continue_shoot = true;
+    }
+
+    void booster_thread(void *argument)
+    {
+        while (true)
+        {
+            booster_rc2cmd(rc_ptr);
+            booster_ptr->set_command(*booster_cmd_ptr);
+            vTaskDelay(1);
+        }
+    }
+
+    status_t sentry_booster_init(void *argument)
+    {
+        booster_cmd_ptr = new booster_cmd_t();
+        booster_cfg_ptr = new booster_cfg_t();
+
+        booster_ptr     = shoot_17mm_control_t::instance();
+        booster_config(*booster_cfg_ptr);
+        booster_ptr->configure(*booster_cfg_ptr);
+        booster_ptr->start();
+
+        rc_ptr = static_cast<pyro::dr16_drv_t::dr16_ctrl_t const *>(
+            pyro::rc_hub_t::get_instance(pyro::rc_hub_t::DR16)->read());
+        xTaskCreate(booster_thread, "booster_thread", 512, nullptr,
+                    configMAX_PRIORITIES - 1, nullptr);
+        vTaskDelete(nullptr);
+        return PYRO_OK;
+    }
+}
+
+#endif

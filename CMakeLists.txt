@@ -186,7 +186,6 @@ target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
         PYRo/Component/Powermeter
         PYRo/Component/RC
         PYRo/Component/Referee
-        PYRo/Component/Shoot
         PYRo/Component/Supercap
         PYRo/Component/Message
 
