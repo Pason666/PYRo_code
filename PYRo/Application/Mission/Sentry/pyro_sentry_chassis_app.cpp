@@ -62,7 +62,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid = new pid_t(3.0f, 0.01f, 0.02f, 0.1f, 4.0f);
+    rud_cfg.pid.follow_yaw_pid = new pid_t(8.0f, 0.01f, 0.002f, 0.1f, 4.0f);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -107,12 +107,16 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
+    // yaw_cfg.pid.yaw_pos_pid =
+    //     new pid_t(8, 0, 0.002f, 1, 6);
+    // yaw_cfg.pid.yaw_spd_pid =
+    //     new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
     yaw_cfg.pid.yaw_pos_pid =
         new pid_t(10, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
     yaw_cfg.pid.yaw_spd_pid =
         new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10, 4);
 
-    yaw_cfg.yaw_offset = -2.40028524f;
+    yaw_cfg.yaw_offset = 0.257089615f;
 }
 
 extern "C"
@@ -143,6 +147,7 @@ extern "C"
         yaw_cmd_ptr->target_yaw_imu_angle -=
             static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
             0.003f;
+        // yaw_cmd_ptr->test_yaw_radps = static_cast<float>(static_cast<int8_t>(raw_data[3])) * 0.03f;
 
         yaw_cmd_ptr->scanning =
             static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
@@ -159,7 +164,7 @@ extern "C"
         {
             // chassis_rxcmd(rc_ctrl_ptr);
             chassis_rxcmd(rc_ctrl_ptr);
-            // rud_chassis_ptr->set_command(*rud_cmd_ptr);
+            rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
             vTaskDelay(1);
         }

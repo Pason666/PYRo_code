@@ -72,6 +72,9 @@ class shoot_17mm_control_t final
         // 供状态机内部读取的状态变量
         bool is_calibrated  = false;
         uint16_t block_time = 0;
+        bool fric_pid_active = true;
+        bool trig_pid_active = true;
+        bool trig_output_enable = false;
         enum class trig_mode_e
         {
             SPEED,

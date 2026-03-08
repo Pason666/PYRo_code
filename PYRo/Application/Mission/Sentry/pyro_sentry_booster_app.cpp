@@ -8,22 +8,24 @@
 #include "pyro_uart_drv.h"
 using namespace pyro;
 
-shoot_17mm_control_t *booster_ptr          = nullptr;
-booster_cmd_t *booster_cmd_ptr             = nullptr;
-booster_cfg_t *booster_cfg_ptr             = nullptr;
+shoot_17mm_control_t *booster_ptr     = nullptr;
+booster_cmd_t *booster_cmd_ptr        = nullptr;
+booster_cfg_t *booster_cfg_ptr        = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ptr = nullptr;
+
+float rc_timestamp{};
 
 void booster_config(booster_cfg_t &cfg)
 {
-    cfg.motor.fric[0] =
-        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can3);
-    cfg.motor.fric[1] =
-        new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can3);
+    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4,
+                                                  can_hub_t::can2); // 右摩擦轮
+    cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,
+                                                  can_hub_t::can2); // 左摩擦轮
     cfg.motor.trigger =
-        new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can3);
+        new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
 
-    cfg.pid.fric_pid[0]  = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
-    cfg.pid.fric_pid[1]  = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+    cfg.pid.fric_pid[0]  = new pid_t(1.0f, 0, 0, 0, 20.0f);
+    cfg.pid.fric_pid[1]  = new pid_t(1.0f, 0, 0, 0, 20.0f);
     cfg.pid.trig_pos_pid = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
     cfg.pid.trig_spd_pid = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
 }
@@ -37,18 +39,41 @@ extern "C"
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
-            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
-            booster_cmd_ptr->is_fric_on = true;
+            if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
+                dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+            {
+                booster_cmd_ptr->is_fric_on = true;
+            }
+            else
+                booster_cmd_ptr->is_fric_on = false;
+
+            // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
+            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+            {
+                booster_cmd_ptr->continue_shoot = true;
+                // 注意：连发模式下，不要触发单发，防止逻辑冲突
+            }
+            else
+            {
+                // 拨杆不在下方，关闭连发
+                booster_cmd_ptr->continue_shoot = false;
+            }
+            // 情况 B：检测到边沿信号 (MID -> DOWN) -> 触发一次单发
+            if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl)
+            {
+
+                if (rc_timestamp != p_ctrl->rc.s_l.change_time)
+                    booster_cmd_ptr->single_shoot = true;
+                rc_timestamp = p_ctrl->rc.s_l.change_time;
+            }
         }
         else
-            booster_cmd_ptr->is_fric_on = false;
-
-        if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl)
-            booster_cmd_ptr->single_shoot = true;
-        if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
-            booster_cmd_ptr->continue_shoot = true;
+        {
+            booster_cmd_ptr->is_fric_on     = false;
+            booster_cmd_ptr->continue_shoot = false;
+        }
     }
 
     void booster_thread(void *argument)
