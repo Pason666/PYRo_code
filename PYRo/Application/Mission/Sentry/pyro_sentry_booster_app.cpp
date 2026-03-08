@@ -14,20 +14,24 @@ booster_cfg_t *booster_cfg_ptr        = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ptr = nullptr;
 
 float rc_timestamp{};
+uint8_t down_time{};
 
 void booster_config(booster_cfg_t &cfg)
 {
-    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4,
+    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3,
                                                   can_hub_t::can2); // 右摩擦轮
     cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,
                                                   can_hub_t::can2); // 左摩擦轮
     cfg.motor.trigger =
         new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
 
-    cfg.pid.fric_pid[0]  = new pid_t(1.0f, 0, 0, 0, 20.0f);
-    cfg.pid.fric_pid[1]  = new pid_t(1.0f, 0, 0, 0, 20.0f);
-    cfg.pid.trig_pos_pid = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
-    cfg.pid.trig_spd_pid = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+    cfg.pid.fric_pid[0]  = new pid_t(0.22f, 0.01f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.fric_pid[1]  = new pid_t(0.22f, 0.01f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.trig_pos_pid = new pid_t(8.0f, 0.0f, 0.0f, 100.0f, 10.0f);
+    cfg.pid.trig_spd_pid = new pid_t(0.05f, 0.02f, 0.0f, 5.0f, 20.0f);
+
+    // cfg.pid.trig_pos_pid = new pid_t(8.0f, 0.0f, 0.00f, 10, 100.0f);
+    // cfg.pid.trig_spd_pid = new pid_t(0.01f, 0.02f, 0.00f, 5.00f, 10.0f);
 }
 
 extern "C"
@@ -52,27 +56,35 @@ extern "C"
             // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
             if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
             {
-                booster_cmd_ptr->continue_shoot = true;
-                // 注意：连发模式下，不要触发单发，防止逻辑冲突
+                down_time++;
+                if (down_time > 200)
+                {
+                    booster_cmd_ptr->continue_shoot = true;
+                    booster_cmd_ptr->single_shoot = false;
+                    // 注意：连发模式下，不要触发单发，防止逻辑冲突
+                }
             }
             else
             {
                 // 拨杆不在下方，关闭连发
                 booster_cmd_ptr->continue_shoot = false;
+                down_time                       = 0;
             }
             // 情况 B：检测到边沿信号 (MID -> DOWN) -> 触发一次单发
-            if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl)
+            static float sl_using_time = 0;
+            if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
+                p_ctrl->rc.s_l.change_time != sl_using_time)
             {
-
-                if (rc_timestamp != p_ctrl->rc.s_l.change_time)
-                    booster_cmd_ptr->single_shoot = true;
-                rc_timestamp = p_ctrl->rc.s_l.change_time;
+                sl_using_time                 = p_ctrl->rc.s_l.change_time;
+                booster_cmd_ptr->single_shoot = true;
             }
         }
         else
         {
             booster_cmd_ptr->is_fric_on     = false;
             booster_cmd_ptr->continue_shoot = false;
+            booster_cmd_ptr->single_shoot   = false;
+            down_time                       = 0;
         }
     }
 

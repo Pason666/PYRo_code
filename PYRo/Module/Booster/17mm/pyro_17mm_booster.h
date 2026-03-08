@@ -3,6 +3,7 @@
 
 #include "pyro_core_fsm.h"
 #include "pyro_algo_pid.h"
+#include "pyro_algo_common.h"
 #include "pyro_module_base.h"
 #include "pyro_dji_motor_drv.h"
 
@@ -129,18 +130,18 @@ class shoot_17mm_control_t final
         void execute(owner *ctx) override;
         void exit(owner *ctx) override;
     };
-    struct state_reverse_t : public state_t<owner>
-    {
-        void enter(owner *ctx) override;
-        void execute(owner *ctx) override;
-        void exit(owner *ctx) override;
-    };
-    struct state_cali_t : public state_t<owner>
-    {
-        void enter(owner *ctx) override;
-        void execute(owner *ctx) override;
-        void exit(owner *ctx) override;
-    };
+    // struct state_reverse_t : public state_t<owner>
+    // {
+    //     void enter(owner *ctx) override;
+    //     void execute(owner *ctx) override;
+    //     void exit(owner *ctx) override;
+    // };
+    // struct state_cali_t : public state_t<owner>
+    // {
+    //     void enter(owner *ctx) override;
+    //     void execute(owner *ctx) override;
+    //     void exit(owner *ctx) override;
+    // };
     struct state_single_bullet_t : public state_t<owner>
     {
         void enter(owner *ctx) override;
@@ -159,23 +160,23 @@ class shoot_17mm_control_t final
         void execute(owner *ctx) override;
         void exit(owner *ctx) override;
     };
-    struct state_adjust_t : public state_t<owner>
-    {
-        void enter(owner *ctx) override;
-        void execute(owner *ctx) override;
-        void exit(owner *ctx) override;
-    };
+    // struct state_adjust_t : public state_t<owner>
+    // {
+    //     void enter(owner *ctx) override;
+    //     void execute(owner *ctx) override;
+    //     void exit(owner *ctx) override;
+    // };
 
     fsm_t<owner> _main_fsm;
     state_stop_t _state_stop;
     state_ready_fric_t _state_ready_fric;
     state_ready_shoot_t _state_ready_shoot;
-    state_reverse_t _state_reverse;
-    state_cali_t _state_cali;
+    // state_reverse_t _state_reverse;
+    // state_cali_t _state_cali;
     state_single_bullet_t _state_single_bullet;
     state_continue_bullet_t _state_continue_bullet;
     state_done_t _state_done;
-    state_adjust_t _state_adjust;
+    // state_adjust_t _state_adjust;
 };
 
 } // namespace pyro
