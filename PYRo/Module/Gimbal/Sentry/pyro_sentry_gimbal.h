@@ -3,6 +3,7 @@
 
 #include "pyro_module_base.h"
 #include "pyro_algo_pid.h"
+#include "pyro_algo_common.h"
 #include "pyro_dji_motor_drv.h"
 #include "pyro_dm_motor_drv.h"
 #include "pyro_motor_base.h"
@@ -71,6 +72,8 @@ class gimbal_t final
     gimbal_t(const gimbal_t &)            = delete;
     gimbal_t &operator=(const gimbal_t &) = delete;
 
+    [[nodiscard]] float get_yaw_imu_rad() const;
+
   private:
     gimbal_t();
     ~gimbal_t() override = default;
@@ -115,6 +118,9 @@ class gimbal_t final
         float target_yaw_rad{0.0f};
         float target_yaw_radps{0.0f};
 
+        float gimbal_world_yaw{0.0f};
+        float yaw_world_imu{0.0f};
+
         float out_pitch_torque{0.0f};
         float out_yaw_torque{0.0f};
     };
@@ -127,7 +133,7 @@ class gimbal_t final
         motor_ctx_t motor;
         pid_ctx_t pid;
         data_ctx_t data;
-        gimbal_cmd_t *cmd;
+        gimbal_cmd_t *cmd{};
     };
 
     struct debug_ctx_t

@@ -3,19 +3,16 @@
 namespace pyro
 {
 
-void wrap_pi(float &angle)
-{
-    while (angle > PI)
-        angle -= 2 * PI;
-    while (angle < -PI)
-        angle += 2 * PI;
-}
-
 gimbal_t::gimbal_t()
     : module_base_t("sentry_gimbal", 512, 512, task_base_t::priority_t::HIGH)
 {
     _ctx.data  = {};
     debug_data = {};
+}
+
+float gimbal_t::get_yaw_imu_rad() const
+{
+    return _ctx.data.yaw_world_imu;
 }
 
 status_t gimbal_t::_init()
@@ -43,6 +40,13 @@ void gimbal_t::_update_feedback()
     wrap_pi(_ctx.data.current_yaw_rad);
     _ctx.data.current_yaw_radps =
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
+
+    float yaw{}, pitch{}, roll{};
+    ins_drv_t *ins = ins_drv_t::get_instance();
+    ins->get_angles_n(&yaw, &pitch, &roll);
+    _ctx.data.gimbal_world_yaw = yaw / 180 * PI; //小yaw imu角度
+    _ctx.data.yaw_world_imu =   // 大yaw imu角度
+        wrap_pi(_ctx.data.gimbal_world_yaw - _ctx.data.current_yaw_rad);
 }
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)

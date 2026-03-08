@@ -46,8 +46,8 @@ void yaw_t::fsm_active_t::state_manual_t::enter(owner *owner)
 void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
 {
     owner->_ctx.data.world_yaw_error = calculate_yaw_error(
-        owner->_ctx.cmd->target_yaw_imu_angle,
-        owner->_ctx.data.gimbal_world_yaw, yaw_rotation_loops);
+        owner->_ctx.cmd->target_yaw_imu_rad,
+        owner->_ctx.cmd->current_yaw_imu_rad, yaw_rotation_loops);
 
     // man_cyaw_rad   = owner->_ctx.data.world_yaw_error;
     // man_tyaw_radps =

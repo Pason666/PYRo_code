@@ -17,13 +17,16 @@ namespace pyro
 {
 struct yaw_cmd_t : cmd_base_t
 {
-    float target_yaw_imu_angle;
+    float target_yaw_imu_rad;
+    float current_yaw_imu_rad;
 
     float test_yaw_radps;
 
     bool scanning;
 
-    yaw_cmd_t() : target_yaw_imu_angle(0), scanning(false)
+    yaw_cmd_t()
+        : target_yaw_imu_rad(0), current_yaw_imu_rad(0),
+          scanning(false)
     {
     }
 };
@@ -76,7 +79,7 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
 
     struct data_ctx_t
     {
-        float gimbal_world_yaw;
+        // float gimbal_world_yaw;
         float chassis_world_yaw;
         float target_yaw_imu_angle;
         float current_yaw_imu_angle;

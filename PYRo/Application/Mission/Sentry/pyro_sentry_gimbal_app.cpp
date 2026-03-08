@@ -104,15 +104,19 @@ extern "C"
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        static int8_t vx        = 0;
-        static int8_t vy        = 0;
-        static int8_t wz        = 0;
-        static int8_t delta_yaw = 0;
-        static bool active      = false;
-        static bool follow_yaw  = false;
-        static bool scanning    = false;
+        static int8_t vx                   = 0;
+        static int8_t vy                   = 0;
+        static int8_t wz                   = 0;
+        static int8_t delta_yaw            = 0;
+        static bool active                 = false;
+        static bool follow_yaw             = false;
+        static bool scanning               = false;
+        static int16_t current_yaw_imu_rad = 0;
 
         can_tx_drv_t::clear(0x101);
+
+        current_yaw_imu_rad =
+            static_cast<int16_t>(gimbal_ptr->get_yaw_imu_rad() / PI * 32767);
 
         if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
         {
@@ -151,6 +155,11 @@ extern "C"
         can_tx_drv_t::add_data(0x101, 8, vy);
         can_tx_drv_t::add_data(0x101, 8, wz);
         can_tx_drv_t::add_data(0x101, 8, delta_yaw);
+        const auto yaw_high =
+            static_cast<uint8_t>((current_yaw_imu_rad >> 8) & 0xFF);
+        const auto yaw_low = static_cast<uint8_t>(current_yaw_imu_rad & 0xFF);
+        can_tx_drv_t::add_data(0x101, 8, yaw_high); // 先发高字节
+        can_tx_drv_t::add_data(0x101, 8, yaw_low);  // 后发低字节
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(scanning));
