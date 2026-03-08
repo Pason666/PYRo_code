@@ -107,16 +107,15 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    // yaw_cfg.pid.yaw_pos_pid =
-    //     new pid_t(8, 0, 0.002f, 1, 6);
-    // yaw_cfg.pid.yaw_spd_pid =
-    //     new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
     yaw_cfg.pid.yaw_pos_pid =
-        new pid_t(10, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
+        new pid_t(150, 0, 0.9f, 1, 6, 0, 5, 5);
     yaw_cfg.pid.yaw_spd_pid =
-        new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10, 4);
+        new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
+    // yaw_cfg.pid.yaw_pos_pid =
+    //     new pid_t(10, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
+    // yaw_cfg.pid.yaw_spd_pid = new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10, 4);
 
-    yaw_cfg.yaw_offset = 0.257089615f;
+    yaw_cfg.yaw_offset      = 0.257089615f;
 }
 
 extern "C"
@@ -136,8 +135,7 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
 
-        rud_cmd_ptr->follow_yaw =
-            static_cast<bool>(raw_data[4] & 0x01);
+        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
         rud_cmd_ptr->vx =
             2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) / 127.0f;
         rud_cmd_ptr->vy =
@@ -146,8 +144,9 @@ extern "C"
 
         yaw_cmd_ptr->target_yaw_imu_angle -=
             static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
-            0.003f;
-        // yaw_cmd_ptr->test_yaw_radps = static_cast<float>(static_cast<int8_t>(raw_data[3])) * 0.03f;
+            0.005f;
+        // yaw_cmd_ptr->test_yaw_radps =
+        // static_cast<float>(static_cast<int8_t>(raw_data[3])) * 0.03f;
 
         yaw_cmd_ptr->scanning =
             static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
@@ -156,7 +155,6 @@ extern "C"
 
     void chassis_pc2cmd()
     {
-
     }
     void sentry_chassis_thread(void *argument)
     {
