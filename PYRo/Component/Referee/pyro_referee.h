@@ -107,8 +107,7 @@ class referee_drv_t
 
     /* Private Methods */
     explicit referee_drv_t(uart_drv_t *uart_handle);
-    bool rx_callback(uint8_t *p, uint16_t size,
-                     BaseType_t task_woken);
+    bool rx_callback(uint8_t *p, uint16_t size, BaseType_t task_woken);
     void unpack_fifo_data();
 
     template <typename T>

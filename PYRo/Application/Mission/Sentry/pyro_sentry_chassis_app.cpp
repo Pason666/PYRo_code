@@ -62,7 +62,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid = new pid_t(8.0f, 0.01f, 0.002f, 0.1f, 4.0f);
+    rud_cfg.pid.follow_yaw_pid = new pid_t(8.0f, 0.01f, 0.002f, 0.1f, 4.0f, 0, 4, 5);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -108,7 +108,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
     yaw_cfg.pid.yaw_pos_pid =
-        new pid_t(150, 0, 0.9f, 1, 6, 0, 5, 5);
+        new pid_t(150, 0, 0.9f, 1, 6, 0, 4, 5);
     yaw_cfg.pid.yaw_spd_pid =
         new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
     // yaw_cfg.pid.yaw_pos_pid =
