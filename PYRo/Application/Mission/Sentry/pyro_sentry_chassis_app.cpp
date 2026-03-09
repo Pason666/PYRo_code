@@ -8,6 +8,8 @@
 #include "pyro_com_canrx.h"
 #include "pyro_yaw.h"
 #include "pyro_uart_drv.h"
+#include "pyro_referee.h"
+
 using namespace pyro;
 
 rud_chassis_t *rud_chassis_ptr             = nullptr;
@@ -17,7 +19,7 @@ yaw_cmd_t *yaw_cmd_ptr                     = nullptr;
 rud_cfg_t *rud_cfg_ptr                     = nullptr;
 yaw_cfg_t *yaw_cfg_ptr                     = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
-dr16_drv_t::dr16_ctrl_t dr16_data;
+referee_data_t *referee_data               = nullptr;
 
 void chassis_config(rud_cfg_t &rud_cfg)
 {
@@ -62,7 +64,8 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid = new pid_t(8.0f, 0.01f, 0.002f, 0.1f, 4.0f, 0, 4, 5);
+    rud_cfg.pid.follow_yaw_pid =
+        new pid_t(8.0f, 0.01f, 0.002f, 0.1f, 4.0f, 0, 4, 5);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -107,13 +110,12 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    yaw_cfg.pid.yaw_pos_pid =
-        new pid_t(150, 0, 0.9f, 1, 6, 0, 4, 5);
-    yaw_cfg.pid.yaw_spd_pid =
-        new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(150, 0, 0.9f, 1, 6, 0, 4, 5);
+    yaw_cfg.pid.yaw_spd_pid = new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
     // yaw_cfg.pid.yaw_pos_pid =
     //     new pid_t(10, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
-    // yaw_cfg.pid.yaw_spd_pid = new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10, 4);
+    // yaw_cfg.pid.yaw_spd_pid = new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10,
+    // 4);
 
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
@@ -156,6 +158,17 @@ extern "C"
     void chassis_pc2cmd()
     {
     }
+
+    void referee_process(const referee_drv_t *referee_drv)
+    {
+        const auto& data = referee_drv->get_data();
+        if (referee_drv->is_online())
+        {
+            uint16_t id = data.robot_status.robot_id;
+
+        }
+    }
+
     void sentry_chassis_thread(void *argument)
     {
         while (true)
@@ -175,6 +188,8 @@ extern "C"
         rud_cfg_ptr     = new rud_cfg_t();
         yaw_cmd_ptr     = new yaw_cmd_t();
         yaw_cfg_ptr     = new yaw_cfg_t();
+        referee_drv_t *referee_drv = referee_drv_t::get_instance();
+        referee_drv->init();
 
         // can_rx_drv_t::subscribe(can_hub_t::which_can::can2, 0x101);
         rud_chassis_ptr = rud_chassis_t::instance();

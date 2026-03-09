@@ -51,6 +51,12 @@ typedef struct
 
 typedef struct
 {
+    uint16_t stop_record;
+    uint16_t enemy_color;
+} __attribute__((packed)) mcu2nav_data_t;
+
+typedef struct
+{
     frame_header header;
     nav2mcu_data_t data;
     frame_tailer tailer;
@@ -69,6 +75,13 @@ typedef struct
     mcu2aim_data_t data;
     frame_tailer tailer;
 } __attribute__((packed)) mcu2aim_msg_t;
+
+typedef struct
+{
+    frame_header header;
+    mcu2nav_data_t data;
+    frame_tailer tailer;
+} __attribute__((packed)) mcu2nav_msg_t;
 
 #endif
 
