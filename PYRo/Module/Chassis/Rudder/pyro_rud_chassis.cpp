@@ -6,6 +6,7 @@ namespace pyro
 float cspeed[4]{};
 float tspeed[4]{};
 float ctorque[4]{};
+float test_yaw_error{};
 /**********************************************************************/
 // static float _mps_to_rpm(const float mps, const float radius)
 // {
@@ -109,6 +110,7 @@ void rud_chassis_t::_kinematics_solve()
     }
     else if (_ctx.cmd->mode == rud_cmd_t::mode_t::ACTIVE)
     {
+        test_yaw_error = _ctx.cmd->yaw_error;
         if (_ctx.cmd->follow_yaw == true)
         {
             _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(

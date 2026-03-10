@@ -22,6 +22,7 @@ uart_comm_t *comm                          = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 
 __attribute__((section(".dma_heap"))) nav2mcu_msg_t nav2mcu_msg;
+__attribute__((section(".dma_heap"))) mcu2nav_msg_t mcu2nav_msg;
 
 void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 {
@@ -167,7 +168,6 @@ extern "C"
                                       can_hub_t::which_can::can3));
     }
 
-
     void sentry_gimbal_thread(void *argument)
     {
         while (true)
@@ -176,6 +176,7 @@ extern "C"
             gimbal_rc2cmd(rc_ctrl_ptr);
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
             comm->read(nav2mcu_msg);
+            comm->write(mcu2nav_msg);
             vTaskDelay(1);
         }
     }
@@ -187,11 +188,21 @@ extern "C"
         comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
 
         nav2mcu_msg.header.sof = 0xA5;
+        mcu2nav_msg.header.sof = 0xA5;
+
+        mcu2nav_msg.data.enemy_color = 300;
+        mcu2nav_msg.data.stop_record = 400;
 
         comm->register_msg_type(
             sizeof(nav2mcu_msg),
             reinterpret_cast<const uint8_t *>(&nav2mcu_msg.header),
             sizeof(nav2mcu_msg.header));
+        comm->register_msg_type(
+            sizeof(mcu2nav_msg),
+            reinterpret_cast<const uint8_t *>(&mcu2nav_msg.header),
+            sizeof(mcu2nav_msg.header));
+        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
+                               sizeof(mcu2nav_msg));
 
         gimbal_ptr = gimbal_t::instance();
         gimbal_config(*gimbal_cfg_ptr);

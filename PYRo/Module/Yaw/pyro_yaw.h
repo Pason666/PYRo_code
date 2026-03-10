@@ -20,7 +20,7 @@ struct yaw_cmd_t : cmd_base_t
     float target_yaw_imu_rad;
     float current_yaw_imu_rad;
 
-    float test_yaw_radps;
+    // float test_yaw_radps;
 
     bool scanning;
 
