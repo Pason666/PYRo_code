@@ -19,7 +19,8 @@ yaw_cmd_t *yaw_cmd_ptr                     = nullptr;
 rud_cfg_t *rud_cfg_ptr                     = nullptr;
 yaw_cfg_t *yaw_cfg_ptr                     = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
-referee_data_t *referee_data               = nullptr;
+referee_data_t referee_data{};
+extern referee_drv_t *referee_drv;
 
 void chassis_config(rud_cfg_t &rud_cfg)
 {
@@ -161,12 +162,7 @@ extern "C"
 
     void referee_process(const referee_drv_t *referee_drv)
     {
-        const auto& data = referee_drv->get_data();
-        if (referee_drv->is_online())
-        {
-            uint16_t id = data.robot_status.robot_id;
-
-        }
+        referee_data = referee_drv->get_data();
     }
 
     void sentry_chassis_thread(void *argument)
@@ -175,6 +171,7 @@ extern "C"
         {
             // chassis_rxcmd(rc_ctrl_ptr);
             chassis_rxcmd(rc_ctrl_ptr);
+            referee_process(referee_drv);
             rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
             vTaskDelay(1);
@@ -184,12 +181,10 @@ extern "C"
     status_t sentry_chassis_init(void *argument)
     {
         pyro::can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x101);
-        rud_cmd_ptr     = new rud_cmd_t();
-        rud_cfg_ptr     = new rud_cfg_t();
-        yaw_cmd_ptr     = new yaw_cmd_t();
-        yaw_cfg_ptr     = new yaw_cfg_t();
-        referee_drv_t *referee_drv = referee_drv_t::get_instance();
-        referee_drv->init();
+        rud_cmd_ptr = new rud_cmd_t();
+        rud_cfg_ptr = new rud_cfg_t();
+        yaw_cmd_ptr = new yaw_cmd_t();
+        yaw_cfg_ptr = new yaw_cfg_t();
 
         // can_rx_drv_t::subscribe(can_hub_t::which_can::can2, 0x101);
         rud_chassis_ptr = rud_chassis_t::instance();
