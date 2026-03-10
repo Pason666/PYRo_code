@@ -62,9 +62,6 @@ void yaw_t::_update_feedback()
 
     _ctx.data.chassis_wz = chassis_yaw_radps;
 
-    _ctx.data.current_yaw_imu_angle =
-        wrap_pi(yaw - _ctx.data.current_yaw_angle);
-
     // yaw电机当前角速度
     _ctx.data.current_yaw_radps =
         _ctx.yaw_config.motor.yaw->get_current_rotate();

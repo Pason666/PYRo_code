@@ -7,6 +7,7 @@ float cspeed[4]{};
 float tspeed[4]{};
 float ctorque[4]{};
 float test_yaw_error{};
+float predict[4];
 /**********************************************************************/
 // static float _mps_to_rpm(const float mps, const float radius)
 // {
@@ -157,7 +158,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
     }
 
 #if POWER_CONTROL_USE
-    std::vector<power_control_drv_t::motor_data_t> motor_data;
+    std::vector<power_control_drv_t::motor_data_t> motor_data(POWERCONTROL_NUM);
 
     power_control_drv_t &power_controller = power_control_drv_t::get_instance();
     for (int i = 0; i < POWERCONTROL_NUM; i++)
@@ -168,9 +169,9 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
             i, motor_data.at(i).torque_cmd, motor_data.at(i).gyro);
     }
     // 不平均分配
-    float custom_ratios[POWERCONTROL_NUM] = {0.1f, 0.1f, 0.1f, 0.1f};
-    power_controller.calculate_restricted_torques(
-        motor_data.data(), POWERCONTROL_NUM, POWER_LIMIT, custom_ratios);
+    // float custom_ratios[POWERCONTROL_NUM] = {0.1f, 0.1f, 0.1f, 0.1f};
+    // power_controller.calculate_restricted_torques(
+    //     motor_data.data(), POWERCONTROL_NUM, POWER_LIMIT, custom_ratios);
 
     // 平均分配
     power_controller.calculate_restricted_torques(
@@ -178,6 +179,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
     for (int i = 0; i < POWERCONTROL_NUM; i++)
     {
         ctx->data.out_wheel_torque[i] = motor_data.at(i).restricted_torque;
+        predict[i]                    = motor_data.at(i).power_predict;
     }
 
 

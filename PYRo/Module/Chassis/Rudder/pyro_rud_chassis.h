@@ -1,7 +1,7 @@
 #ifndef __PYRO_RUD_CHASSIS_H__
 #define __PYRO_RUD_CHASSIS_H__
 
-#define POWER_CONTROL_USE 0
+#define POWER_CONTROL_USE 1
 
 #include "pyro_algo_pid.h"
 #include "pyro_module_base.h"
@@ -182,7 +182,7 @@ class rud_chassis_t final
 
     static constexpr float RUD_RADIUS         = 0.060f;
     static constexpr uint8_t POWERCONTROL_NUM = 4;
-    static constexpr uint8_t POWER_LIMIT      = 80;
+    static constexpr uint8_t POWER_LIMIT      = 255;
 };
 
 
