@@ -10,6 +10,7 @@
 #include "pyro_yaw.h"
 #include "pyro_uart_drv.h"
 #include "pyro_referee.h"
+#include "pyro_com_cantx.h"
 
 using namespace pyro;
 
@@ -23,7 +24,6 @@ rud_cfg_t *rud_cfg_ptr                     = nullptr;
 yaw_cfg_t *yaw_cfg_ptr                     = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 referee_data_t referee_data{};
-extern referee_drv_t *referee_drv;
 
 void chassis_config(rud_cfg_t &rud_cfg)
 {
@@ -146,8 +146,6 @@ extern "C"
         yaw_cmd_ptr->target_yaw_imu_rad -=
             static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
             0.005f;
-        // yaw_cmd_ptr->test_yaw_radps =
-        // static_cast<float>(static_cast<int8_t>(raw_data[3])) * 0.03f;
 
         yaw_cmd_ptr->scanning =
             static_cast<bool>(static_cast<int8_t>(raw_data[6] >> 2)) & 0x01;
@@ -168,12 +166,35 @@ extern "C"
         referee_data = referee_drv->get_data();
     }
 
+    void chassis2booster_tx()
+    {
+        const uint8_t bullet_speed_int =
+            floor(referee_data.shoot.initial_speed);
+        uint8_t bullet_speed_dec =
+            static_cast<uint8_t>(referee_data.shoot.initial_speed -
+                                 bullet_speed_int) *
+            100;
+        uint16_t ammo_count =
+            referee_data.allowance
+                .projectile_allowance_17mm; // 剩余允许发弹量（0x0208）
+
+        can_tx_drv_t::clear(0x102);
+        can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
+        can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
+        const auto ammo_count_high =
+            static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
+        const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
+        can_tx_drv_t::add_data(0x102, 8, ammo_count_high); // 先发高字节
+        can_tx_drv_t::add_data(0x102, 8, ammo_count_low);  // 后发低字节
+    }
+
     void sentry_chassis_thread(void *argument)
     {
         while (true)
         {
             chassis_rxcmd(rc_ctrl_ptr);
-            referee_process(referee_drv);
+            referee_process(referee_drv_t::get_instance());
+            chassis2booster_tx();
             rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
             vTaskDelay(1);

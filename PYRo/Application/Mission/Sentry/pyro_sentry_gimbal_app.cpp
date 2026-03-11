@@ -7,6 +7,7 @@
 #include "pyro_mutex.h"
 #include "pyro_rc_hub.h"
 #include "pyro_com_cantx.h"
+#include "pyro_com_canrx.h"
 #include "pyro_uart_comm.h"
 #include "pyro_crc.h"
 #include "pyro_uart_message.h"
