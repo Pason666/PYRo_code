@@ -70,8 +70,6 @@ void chassis_config(rud_cfg_t &rud_cfg)
 
     rud_cfg.pid.follow_yaw_pid =
         new pid_t(8.0f, 0.01f, 0.001f, 0.1f, 4.0f, 0, 4, 5);
-    //
-    // rud_cfg.pid.follow_yaw_pid = new pid_t(1.0f, 0.0f, 0.0f, 0.0f, 2);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -118,11 +116,6 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
 
     yaw_cfg.pid.yaw_pos_pid = new pid_t(150, 0, 0.9f, 1, 6, 0, 4, 5);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
-    // yaw_cfg.pid.yaw_pos_pid =
-    //     new pid_t(10, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
-    // yaw_cfg.pid.yaw_spd_pid = new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10,
-    // 4);
-    // yaw_cfg.yaw_offset = 0;
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
 
@@ -181,8 +174,8 @@ extern "C"
         {
             chassis_rxcmd(rc_ctrl_ptr);
             referee_process(referee_drv);
-            // rud_chassis_ptr->set_command(*rud_cmd_ptr);
-            // yaw_ptr->set_command(*yaw_cmd_ptr);
+            rud_chassis_ptr->set_command(*rud_cmd_ptr);
+            yaw_ptr->set_command(*yaw_cmd_ptr);
             vTaskDelay(1);
         }
     }
