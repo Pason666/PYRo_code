@@ -106,7 +106,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
 
 void yaw_config(yaw_cfg_t &yaw_cfg)
 {
-    yaw_cfg.motor.yaw = new dm_motor_drv_t(0x01, 0x02, can_hub_t::can2);
+    yaw_cfg.motor.yaw = new dm_motor_drv_t(0x11, 0x12, can_hub_t::can2);
     yaw_cfg.motor.yaw->set_position_range(-PI, PI);
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);

@@ -25,7 +25,7 @@ constexpr float SHOOT_FIRE_RADPS =
     (-SHOOT_BULLET_MUZZLE_VELOCITY / FRICTION_WHEEL_RADIUS); // 摩擦轮角速度
 
 // constexpr float TRIGGER_UNJAM_RADPS      = 6.0f;   // 解堵速度
-constexpr float TRIGGER_CONTINUOUS_RADPS = 7.85f; // 连续发射速度（拨弹盘速度）
+constexpr float TRIGGER_CONTINUOUS_RADPS = 20; // 连续发射速度（拨弹盘速度）
 
 // 堵转判定
 // constexpr float TRIGGER_BLOCK_RAD        = 0.2f; // 堵转判定弧度阈值
