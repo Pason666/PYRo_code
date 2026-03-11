@@ -158,7 +158,10 @@ void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)
 {
     ctx->booster_cfg.motor.fric[0]->send_torque(ctx->data.out_fric_torque[0]);
     ctx->booster_cfg.motor.fric[1]->send_torque(ctx->data.out_fric_torque[1]);
-    ctx->booster_cfg.motor.trigger->send_torque(ctx->data.out_trig_torque);
+    if (ctx->data.fire_flag ==  true)
+    {
+        ctx->booster_cfg.motor.trigger->send_torque(ctx->data.out_trig_torque);
+    }
 }
 // ================== FSM 状态实现 ==================
 

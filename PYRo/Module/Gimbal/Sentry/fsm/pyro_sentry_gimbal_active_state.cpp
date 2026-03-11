@@ -4,6 +4,10 @@ namespace pyro
 {
 void gimbal_t::fsm_active_t::on_enter(owner *owner)
 {
+    if (dm_motor_drv_t::ok != owner->_ctx.gimbal_config.motor.pitch->get_error_code())
+    {
+        owner->_ctx.gimbal_config.motor.pitch->clear_error();
+    }
     owner->_ctx.gimbal_config.motor.yaw->enable();
     owner->_ctx.gimbal_config.motor.pitch->enable();
 }

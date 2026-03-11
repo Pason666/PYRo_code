@@ -3,7 +3,7 @@
 //
 #include "pyro_yaw.h"
 
-float a1, a2, a3;
+float a1, a2;
 namespace pyro
 {
 
@@ -18,9 +18,7 @@ yaw_t::yaw_t() : module_base_t("yaw", 512, 512, task_base_t::priority_t::HIGH)
 
 float yaw_t::get_yaw_error() const
 {
-    float world_yaw_error =
-        wrap_pi(_ctx.data.gimbal_world_yaw - _ctx.data.chassis_world_yaw);
-    return world_yaw_error;
+    return wrap_pi(_ctx.data.current_yaw_angle);
 }
 
 status_t yaw_t::_init()
@@ -55,17 +53,14 @@ void yaw_t::_update_feedback()
     ins->get_gyro_n(&chassis_yaw_radps, &chassis_pitch_radps,
                     &chassis_roll_radps);
     _ctx.data.chassis_world_yaw = yaw / 180 * PI;
-    _ctx.data.gimbal_world_yaw =
-        wrap_pi(_ctx.data.chassis_world_yaw - _ctx.data.current_yaw_angle);
+    // _ctx.data.gimbal_world_yaw =
+    //     wrap_pi(_ctx.data.chassis_world_yaw - _ctx.data.current_yaw_angle);
 
     a1 = _ctx.data.chassis_world_yaw;
     a2 = _ctx.data.current_yaw_angle;
-    a3 = _ctx.data.gimbal_world_yaw;
+    // a3 = _ctx.data.gimbal_world_yaw;
 
     _ctx.data.chassis_wz = chassis_yaw_radps;
-
-    _ctx.data.current_yaw_imu_angle =
-        wrap_pi(yaw - _ctx.data.current_yaw_angle);
 
     // yaw电机当前角速度
     _ctx.data.current_yaw_radps =

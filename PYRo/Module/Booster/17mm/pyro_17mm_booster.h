@@ -14,6 +14,8 @@ struct booster_cmd_t : cmd_base_t
     bool is_fric_on; // 摩擦轮是否开启
     bool single_shoot;   // 触发单发
     bool continue_shoot; // 触发连发
+    float current_bullet_mps{}; // 当前弹速（裁判系统反馈）
+    uint16_t ammo_count{}; //剩余发弹量（裁判系统反馈）
     booster_cmd_t()
         : is_fric_on(false), single_shoot(false), continue_shoot(false)
     {
@@ -66,6 +68,7 @@ class shoot_17mm_control_t final
     // --- 派生方法 ---
     static void _fric_control(shoot_17mm_control_t *ctx);
     static void _trig_control(shoot_17mm_control_t *ctx);
+    static void _fire_control(booster_ctx_t *ctx);
     static void _send_motor_command(booster_ctx_t *ctx);
 
     struct data_ctx_t
@@ -76,6 +79,7 @@ class shoot_17mm_control_t final
         bool fric_pid_active = true;
         bool trig_pid_active = true;
         bool trig_output_enable = false;
+        bool fire_flag = false;
         enum class trig_mode_e
         {
             SPEED,

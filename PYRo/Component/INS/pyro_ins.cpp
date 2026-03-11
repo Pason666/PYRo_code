@@ -33,7 +33,7 @@ using namespace pyro;
 #elif ROBOT_ID == SUB_INFANTRY_ID
 #define IMU_DIRECT IMU_DIRECT_1
 #elif ROBOT_ID == SENTRY_ID
-#define IMU_DIRECT IMU_DIRECT_2
+#define IMU_DIRECT IMU_DIRECT_4
 #elif ROBOT_ID == SUB_SENTRY_ID
 #define IMU_DIRECT IMU_DIRECT_1
 #elif ROBOT_ID == UAV_ID

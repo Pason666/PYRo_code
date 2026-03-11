@@ -2,20 +2,21 @@
 
 namespace pyro
 {
-
-void wrap_pi(float &angle)
-{
-    while (angle > PI)
-        angle -= 2 * PI;
-    while (angle < -PI)
-        angle += 2 * PI;
-}
+float test_current_yaw;
+float test_current_pitch;
+float test_target_yaw;
+float test_target_pitch;
 
 gimbal_t::gimbal_t()
     : module_base_t("sentry_gimbal", 512, 512, task_base_t::priority_t::HIGH)
 {
     _ctx.data  = {};
     debug_data = {};
+}
+
+float gimbal_t::get_yaw_imu_rad() const
+{
+    return _ctx.data.yaw_world_imu;
 }
 
 status_t gimbal_t::_init()
@@ -38,11 +39,17 @@ void gimbal_t::_update_feedback()
         _ctx.gimbal_config.motor.pitch->get_current_rotate();
 
     _ctx.data.current_yaw_rad =
-        _ctx.gimbal_config.motor.yaw->get_current_position() -
-        _ctx.gimbal_config.yaw_offset;
-    wrap_pi(_ctx.data.current_yaw_rad);
+        wrap_pi(_ctx.gimbal_config.motor.yaw->get_current_position() -
+                _ctx.gimbal_config.yaw_offset);
     _ctx.data.current_yaw_radps =
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
+
+    float yaw{}, pitch{}, roll{};
+    ins_drv_t *ins = ins_drv_t::get_instance();
+    ins->get_angles_n(&yaw, &pitch, &roll);
+    _ctx.data.gimbal_world_yaw = yaw / 180 * PI; // 小yaw imu角度
+    _ctx.data.yaw_world_imu    =                 // 大yaw imu角度
+        wrap_pi(_ctx.data.gimbal_world_yaw - _ctx.data.current_yaw_rad);
 }
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
@@ -53,10 +60,16 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
         ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, ctx->data.current_pitch_rad);
 
+    test_current_pitch = ctx->data.current_pitch_rad;
+    test_target_pitch = ctx->data.target_pitch_rad;
+
     // pitch轴速度环
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps);
+
+    test_current_yaw = ctx->data.current_yaw_rad;
+    test_target_yaw = ctx->data.target_yaw_rad;
 
     wrap_pi(ctx->data.target_yaw_rad);
     // yaw轴位置环

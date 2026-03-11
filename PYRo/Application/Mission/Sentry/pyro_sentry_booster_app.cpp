@@ -3,6 +3,7 @@
 
 #include "pyro_module_base.h"
 #include "pyro_17mm_booster.h"
+#include "pyro_com_canrx.h"
 #include "pyro_mutex.h"
 #include "pyro_rc_hub.h"
 #include "pyro_uart_drv.h"
@@ -86,6 +87,15 @@ extern "C"
             booster_cmd_ptr->single_shoot   = false;
             down_time                       = 0;
         }
+    }
+
+    void chassis2booster_rx()
+    {
+        std::array<uint8_t, 8> raw_data{};
+        can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data);
+
+        booster_cmd_ptr->current_bullet_mps = raw_data[0] + raw_data[1] / 100.0f;
+        booster_cmd_ptr->ammo_count = static_cast<int16_t>(raw_data[2] << 8 | raw_data[3]);
     }
 
     void booster_thread(void *argument)

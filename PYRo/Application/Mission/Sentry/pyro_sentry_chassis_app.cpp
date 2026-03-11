@@ -1,4 +1,5 @@
 #include "pyro_core_config.h"
+#include "pyro_core_def.h"
 #if BOARD_ID == CHASSIS_ID
 
 #include "pyro_module_base.h"
@@ -9,8 +10,11 @@
 #include "pyro_yaw.h"
 #include "pyro_uart_drv.h"
 #include "pyro_referee.h"
+#include "pyro_com_cantx.h"
 
 using namespace pyro;
+
+float test_imu;
 
 rud_chassis_t *rud_chassis_ptr             = nullptr;
 yaw_t *yaw_ptr                             = nullptr;
@@ -20,7 +24,6 @@ rud_cfg_t *rud_cfg_ptr                     = nullptr;
 yaw_cfg_t *yaw_cfg_ptr                     = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 referee_data_t referee_data{};
-extern referee_drv_t *referee_drv;
 
 void chassis_config(rud_cfg_t &rud_cfg)
 {
@@ -66,7 +69,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
     rud_cfg.pid.follow_yaw_pid =
-        new pid_t(8.0f, 0.01f, 0.002f, 0.1f, 4.0f, 0, 4, 5);
+        new pid_t(8.0f, 0.01f, 0.001f, 0.1f, 4.0f, 0, 4, 5);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -75,32 +78,32 @@ void chassis_config(rud_cfg_t &rud_cfg)
 
     power_control_drv_t &power_controller =
         power_control_drv_t::get_instance(4);
-    power_control_drv_t::motor_coefficient_t coef1;
-    coef1.k1 = 0;
-    coef1.k2 = 0;
-    coef1.k3 = 0;
-    coef1.k4 = 0;
+    power_control_drv_t::motor_coefficient_t coef1{};
+    coef1.k1 = 0.0260f;
+    coef1.k2 = 0.0460f;
+    coef1.k3 = 0.1100f;
+    coef1.k4 = 0.7500f;
     power_controller.set_motor_coefficient(1, coef1);
 
-    power_control_drv_t::motor_coefficient_t coef2;
-    coef2.k1 = 0;
-    coef2.k2 = 0;
-    coef2.k3 = 0;
-    coef2.k4 = 0;
+    power_control_drv_t::motor_coefficient_t coef2{};
+    coef2.k1 = 0.0260f;
+    coef2.k2 = 0.0460f;
+    coef2.k3 = 0.1100f;
+    coef2.k4 = 0.7500f;
     power_controller.set_motor_coefficient(2, coef2);
 
-    power_control_drv_t::motor_coefficient_t coef3;
-    coef3.k1 = 0;
-    coef3.k2 = 0;
-    coef3.k3 = 0;
-    coef3.k4 = 0;
+    power_control_drv_t::motor_coefficient_t coef3{};
+    coef3.k1 = 0.0260f;
+    coef3.k2 = 0.0460f;
+    coef3.k3 = 0.1100f;
+    coef3.k4 = 0.7500f;
     power_controller.set_motor_coefficient(3, coef3);
 
-    power_control_drv_t::motor_coefficient_t coef4;
-    coef4.k1 = 0;
-    coef4.k2 = 0;
-    coef4.k3 = 0;
-    coef4.k4 = 0;
+    power_control_drv_t::motor_coefficient_t coef4{};
+    coef4.k1 = 0.0260f;
+    coef4.k2 = 0.0460f;
+    coef4.k3 = 0.1100f;
+    coef4.k4 = 0.7500f;
     power_controller.set_motor_coefficient(4, coef4);
 }
 
@@ -113,11 +116,6 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
 
     yaw_cfg.pid.yaw_pos_pid = new pid_t(150, 0, 0.9f, 1, 6, 0, 4, 5);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
-    // yaw_cfg.pid.yaw_pos_pid =
-    //     new pid_t(10, 0.0f, 0.001f, 0.5f, 10.0f, 20, 10, 4);
-    // yaw_cfg.pid.yaw_spd_pid = new pid_t(1.85f, 0.0f, 0, 0.1f, 6.0f, 20, 10,
-    // 4);
-
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
 
@@ -127,7 +125,7 @@ extern "C"
     {
         std::array<uint8_t, 8> raw_data{};
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x101, raw_data);
-        if (static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 1)) & 0x01)
+        if (static_cast<bool>(static_cast<int8_t>(raw_data[6] >> 1)) & 0x01)
         {
             rud_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
@@ -138,22 +136,25 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
 
-        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
+        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[6] & 0x01);
         rud_cmd_ptr->vx =
             2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) / 127.0f;
         rud_cmd_ptr->vy =
             2 * static_cast<float>(static_cast<int8_t>(raw_data[1])) / 127.0f;
         rud_cmd_ptr->wz = static_cast<float>(static_cast<int8_t>(raw_data[2]));
 
-        yaw_cmd_ptr->target_yaw_imu_angle -=
+        yaw_cmd_ptr->target_yaw_imu_rad -=
             static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
             0.005f;
-        // yaw_cmd_ptr->test_yaw_radps =
-        // static_cast<float>(static_cast<int8_t>(raw_data[3])) * 0.03f;
 
         yaw_cmd_ptr->scanning =
-            static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
-        rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
+            static_cast<bool>(static_cast<int8_t>(raw_data[6] >> 2)) & 0x01;
+        yaw_cmd_ptr->current_yaw_imu_rad =
+            static_cast<int16_t>(raw_data[4] << 8 | raw_data[5]) * PI / 32767 -
+            yaw_cfg_ptr->yaw_offset;
+        test_imu               = yaw_cmd_ptr->current_yaw_imu_rad;
+
+        rud_cmd_ptr->yaw_error = -yaw_ptr->get_yaw_error();
     }
 
     void chassis_pc2cmd()
@@ -165,13 +166,35 @@ extern "C"
         referee_data = referee_drv->get_data();
     }
 
+    void chassis2booster_tx()
+    {
+        const uint8_t bullet_speed_int =
+            floor(referee_data.shoot.initial_speed);
+        uint8_t bullet_speed_dec =
+            static_cast<uint8_t>(referee_data.shoot.initial_speed -
+                                 bullet_speed_int) *
+            100;
+        uint16_t ammo_count =
+            referee_data.allowance
+                .projectile_allowance_17mm; // 剩余允许发弹量（0x0208）
+
+        can_tx_drv_t::clear(0x102);
+        can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
+        can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
+        const auto ammo_count_high =
+            static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
+        const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
+        can_tx_drv_t::add_data(0x102, 8, ammo_count_high); // 先发高字节
+        can_tx_drv_t::add_data(0x102, 8, ammo_count_low);  // 后发低字节
+    }
+
     void sentry_chassis_thread(void *argument)
     {
         while (true)
         {
-            // chassis_rxcmd(rc_ctrl_ptr);
             chassis_rxcmd(rc_ctrl_ptr);
-            referee_process(referee_drv);
+            referee_process(referee_drv_t::get_instance());
+            chassis2booster_tx();
             rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
             vTaskDelay(1);
@@ -181,10 +204,10 @@ extern "C"
     status_t sentry_chassis_init(void *argument)
     {
         pyro::can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x101);
-        rud_cmd_ptr = new rud_cmd_t();
-        rud_cfg_ptr = new rud_cfg_t();
-        yaw_cmd_ptr = new yaw_cmd_t();
-        yaw_cfg_ptr = new yaw_cfg_t();
+        rud_cmd_ptr     = new rud_cmd_t();
+        rud_cfg_ptr     = new rud_cfg_t();
+        yaw_cmd_ptr     = new yaw_cmd_t();
+        yaw_cfg_ptr     = new yaw_cfg_t();
 
         // can_rx_drv_t::subscribe(can_hub_t::which_can::can2, 0x101);
         rud_chassis_ptr = rud_chassis_t::instance();

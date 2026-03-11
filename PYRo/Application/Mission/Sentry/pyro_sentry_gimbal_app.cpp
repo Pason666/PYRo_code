@@ -7,6 +7,7 @@
 #include "pyro_mutex.h"
 #include "pyro_rc_hub.h"
 #include "pyro_com_cantx.h"
+#include "pyro_com_canrx.h"
 #include "pyro_uart_comm.h"
 #include "pyro_crc.h"
 #include "pyro_uart_message.h"
@@ -14,6 +15,8 @@
 using namespace pyro;
 
 extern status_t sentry_booster_init(void *argument);
+
+float test_imu;
 
 gimbal_t *gimbal_ptr                       = nullptr;
 gimbal_cmd_t *gimbal_cmd_ptr               = nullptr;
@@ -33,28 +36,27 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.motor.pitch->set_rotate_range(-20, 20);
     gimbal_cfg.motor.pitch->set_torque_range(-10, 10);
 
-    gimbal_cfg.pitch_max_rad = 0.13f;
-    gimbal_cfg.pitch_min_rad = -0.17f;
-    gimbal_cfg.yaw_max_rad   = 0.70f;
-    gimbal_cfg.yaw_min_rad   = -0.70f;
+    gimbal_cfg.pitch_max_rad     = 0.13f;
+    gimbal_cfg.pitch_min_rad     = -0.17f;
+    gimbal_cfg.yaw_max_rad       = 0.70f;
+    gimbal_cfg.yaw_min_rad       = -0.70f;
 
-    gimbal_cfg.pid.pitch_pos_pid =
-        new pid_t(50.0f, 0.05f, 0.09f, 0.5f, 10.0f, 15, 150, 4);
-    gimbal_cfg.pid.pitch_spd_pid =
-        new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3.0f, 15, 150, 4);
-    gimbal_cfg.pid.yaw_pos_pid =
-        new pid_t(25.0f, 1.0f, 0.09f, 5, 10.0f, 15, 150, 4);
-    gimbal_cfg.pid.yaw_spd_pid =
-        new pid_t(0.35f, 0.0f, 0.0f, 0.1f, 6, 15, 150, 4);
+    gimbal_cfg.pid.pitch_pos_pid = new pid_t(50.0f, 0.05f, 0.09f, 0.5f, 10.0f);
+    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.37f, 0.02f, 0.0f, 0.5f, 6.0f);
+    gimbal_cfg.pid.yaw_pos_pid   = new pid_t(25.0f, 1.0f, 0.09f, 5, 10.0f);
+
+
+
+    gimbal_cfg.pid.yaw_spd_pid   = new pid_t(0.40f, 0.08f, 0.0f, 0.2f, 6);
 
     // gimbal_cfg.pid.yaw_pos_pid =
     //     new pid_t(0.5f, 0, 0.09f, 5, 10.0f);
     // gimbal_cfg.pid.yaw_spd_pid =
     //     new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3);
 
-    gimbal_cfg.pitch_offset = 0.27f;
+    gimbal_cfg.pitch_offset      = 0.27f;
     // gimbal_cfg.pitch_offset = 0.024f;
-    gimbal_cfg.yaw_offset   = 2.05022361f;
+    gimbal_cfg.yaw_offset        = 2.05022361f;
 }
 
 extern "C"
@@ -105,15 +107,20 @@ extern "C"
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        static int8_t vx        = 0;
-        static int8_t vy        = 0;
-        static int8_t wz        = 0;
-        static int8_t delta_yaw = 0;
-        static bool active      = false;
-        static bool follow_yaw  = false;
-        static bool scanning    = false;
+        static int8_t vx                   = 0;
+        static int8_t vy                   = 0;
+        static int8_t wz                   = 0;
+        static int8_t delta_yaw            = 0;
+        static bool active                 = false;
+        static bool follow_yaw             = false;
+        static bool scanning               = false;
+        static int16_t current_yaw_imu_rad = 0;
 
         can_tx_drv_t::clear(0x101);
+
+        current_yaw_imu_rad =
+            static_cast<int16_t>(gimbal_ptr->get_yaw_imu_rad() / PI * 32767);
+        test_imu = current_yaw_imu_rad;
 
         if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
         {
@@ -152,6 +159,11 @@ extern "C"
         can_tx_drv_t::add_data(0x101, 8, vy);
         can_tx_drv_t::add_data(0x101, 8, wz);
         can_tx_drv_t::add_data(0x101, 8, delta_yaw);
+        const auto yaw_high =
+            static_cast<uint8_t>((current_yaw_imu_rad >> 8) & 0xFF);
+        const auto yaw_low = static_cast<uint8_t>(current_yaw_imu_rad & 0xFF);
+        can_tx_drv_t::add_data(0x101, 8, yaw_high); // 先发高字节
+        can_tx_drv_t::add_data(0x101, 8, yaw_low);  // 后发低字节
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(scanning));
@@ -178,8 +190,8 @@ extern "C"
         gimbal_cfg_ptr = new gimbal_cfg_t();
         comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
 
-        nav2mcu_msg.header.sof = 0xA5;
-        mcu2nav_msg.header.sof = 0xA5;
+        nav2mcu_msg.header.sof       = 0xA5;
+        mcu2nav_msg.header.sof       = 0xA5;
 
         mcu2nav_msg.data.enemy_color = 300;
         mcu2nav_msg.data.stop_record = 400;
