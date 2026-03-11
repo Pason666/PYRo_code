@@ -10,6 +10,7 @@
 #include "pyro_kin_rudder.h"
 #include "pyro_powermeter.h"
 #include "pyro_power_control_drv.h"
+#include "pyro_referee.h"
 
 namespace pyro
 {
@@ -182,7 +183,6 @@ class rud_chassis_t final
 
     static constexpr float RUD_RADIUS         = 0.060f;
     static constexpr uint8_t POWERCONTROL_NUM = 4;
-    static constexpr uint8_t POWER_LIMIT      = 255;
 };
 
 

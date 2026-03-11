@@ -168,6 +168,11 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
         motor_data.at(i).power_predict = power_controller.motor_power_predict(
             i, motor_data.at(i).torque_cmd, motor_data.at(i).gyro);
     }
+
+    const float power_limit = referee_drv_t::get_instance()
+                            ->get_data()
+                            .robot_status.chassis_power_limit;
+
     // 不平均分配
     // float custom_ratios[POWERCONTROL_NUM] = {0.1f, 0.1f, 0.1f, 0.1f};
     // power_controller.calculate_restricted_torques(
@@ -175,7 +180,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
 
     // 平均分配
     power_controller.calculate_restricted_torques(
-        motor_data.data(), POWERCONTROL_NUM, POWER_LIMIT);
+        motor_data.data(), POWERCONTROL_NUM, power_limit);
     for (int i = 0; i < POWERCONTROL_NUM; i++)
     {
         ctx->data.out_wheel_torque[i] = motor_data.at(i).restricted_torque;
