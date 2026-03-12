@@ -72,8 +72,6 @@ class gimbal_t final
     gimbal_t(const gimbal_t &)            = delete;
     gimbal_t &operator=(const gimbal_t &) = delete;
 
-    [[nodiscard]] float get_yaw_imu_rad() const;
-
   private:
     gimbal_t();
     ~gimbal_t() override = default;
@@ -117,9 +115,6 @@ class gimbal_t final
         float target_pitch_radps{0.0f};
         float target_yaw_rad{0.0f};
         float target_yaw_radps{0.0f};
-
-        float gimbal_world_yaw{0.0f};
-        float yaw_world_imu{0.0f};
 
         float out_pitch_torque{0.0f};
         float out_yaw_torque{0.0f};

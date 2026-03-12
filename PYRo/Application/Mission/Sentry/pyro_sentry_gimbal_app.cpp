@@ -118,10 +118,6 @@ extern "C"
 
         can_tx_drv_t::clear(0x101);
 
-        current_yaw_imu_rad =
-            static_cast<int16_t>(gimbal_ptr->get_yaw_imu_rad() / PI * 32767);
-        test_imu = current_yaw_imu_rad;
-
         if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
         {
             vx         = 0;
@@ -159,11 +155,6 @@ extern "C"
         can_tx_drv_t::add_data(0x101, 8, vy);
         can_tx_drv_t::add_data(0x101, 8, wz);
         can_tx_drv_t::add_data(0x101, 8, delta_yaw);
-        const auto yaw_high =
-            static_cast<uint8_t>((current_yaw_imu_rad >> 8) & 0xFF);
-        const auto yaw_low = static_cast<uint8_t>(current_yaw_imu_rad & 0xFF);
-        can_tx_drv_t::add_data(0x101, 8, yaw_high); // 先发高字节
-        can_tx_drv_t::add_data(0x101, 8, yaw_low);  // 后发低字节
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(scanning));
@@ -190,7 +181,6 @@ extern "C"
         gimbal_cfg_ptr = new gimbal_cfg_t();
         comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
 
-        nav2mcu_msg.header.sof       = 0xA5;
         mcu2nav_msg.header.sof       = 0xA5;
 
         mcu2nav_msg.data.enemy_color = 300;

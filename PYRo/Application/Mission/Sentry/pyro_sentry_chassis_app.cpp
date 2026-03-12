@@ -125,7 +125,7 @@ extern "C"
     {
         std::array<uint8_t, 8> raw_data{};
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x101, raw_data);
-        if (static_cast<bool>(static_cast<int8_t>(raw_data[6] >> 1)) & 0x01)
+        if (static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 1)) & 0x01)
         {
             rud_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
@@ -136,25 +136,22 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
 
-        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[6] & 0x01);
+        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
         rud_cmd_ptr->vx =
             2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) / 127.0f;
         rud_cmd_ptr->vy =
             2 * static_cast<float>(static_cast<int8_t>(raw_data[1])) / 127.0f;
         rud_cmd_ptr->wz = static_cast<float>(static_cast<int8_t>(raw_data[2]));
 
-        yaw_cmd_ptr->target_yaw_imu_rad -=
+        yaw_cmd_ptr->target_yaw_imu_angle -=
             static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
             0.005f;
+        // yaw_cmd_ptr->test_yaw_radps =
+        // static_cast<float>(static_cast<int8_t>(raw_data[3])) * 0.03f;
 
         yaw_cmd_ptr->scanning =
-            static_cast<bool>(static_cast<int8_t>(raw_data[6] >> 2)) & 0x01;
-        yaw_cmd_ptr->current_yaw_imu_rad =
-            static_cast<int16_t>(raw_data[4] << 8 | raw_data[5]) * PI / 32767 -
-            yaw_cfg_ptr->yaw_offset;
-        test_imu               = yaw_cmd_ptr->current_yaw_imu_rad;
-
-        rud_cmd_ptr->yaw_error = -yaw_ptr->get_yaw_error();
+            static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
+        rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
     }
 
     void chassis_pc2cmd()
@@ -192,6 +189,7 @@ extern "C"
     {
         while (true)
         {
+            // chassis_rxcmd(rc_ctrl_ptr);
             chassis_rxcmd(rc_ctrl_ptr);
             referee_process(referee_drv_t::get_instance());
             chassis2booster_tx();

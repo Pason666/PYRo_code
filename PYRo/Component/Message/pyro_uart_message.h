@@ -20,6 +20,7 @@ typedef struct
     float vy;
     float vz;
     float wz;
+    double imu;
     uint8_t stuck;
 } __attribute__((packed)) nav2mcu_data_t;
 

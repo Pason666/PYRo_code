@@ -76,19 +76,10 @@ void shoot_17mm_control_t::_update_feedback()
         float delta_rad = current_rotor_rad - _ctx.data.last_rotor_rad;
 
         // 2. 处理跨圈突变边界 (0 <-> 2PI 或 -PI <-> PI)
-        if (delta_rad > PI)
-        {
-            delta_rad -= 2.0f * PI;
-        }
-        else if (delta_rad < -PI)
-        {
-            delta_rad += 2.0f * PI;
-        }
+        delta_rad = wrap_pi(delta_rad);
 
         // 3. 将物理增量除以减速比，累加到连续的拨弹盘世界角度中
         _ctx.data.current_trig_rad += delta_rad / TRIGGER_GEAR_RATIO;
-
-        // _ctx.data.current_trig_rad = wrap_pi(_ctx.data.current_trig_rad);
 
         // 更新历史值
         _ctx.data.last_rotor_rad = current_rotor_rad;
@@ -105,7 +96,6 @@ void shoot_17mm_control_t::_fsm_execute()
     if (!_ctx.cmd->is_fric_on)
         _main_fsm.change_state(&_state_stop);
     _main_fsm.execute(this);
-    // _ctx.data.fric_pid_active = false;
     _fric_control(this);
     _trig_control(this);
     _send_motor_command(&_ctx);
@@ -158,10 +148,11 @@ void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)
 {
     ctx->booster_cfg.motor.fric[0]->send_torque(ctx->data.out_fric_torque[0]);
     ctx->booster_cfg.motor.fric[1]->send_torque(ctx->data.out_fric_torque[1]);
-    if (ctx->data.fire_flag ==  true)
-    {
+    // if (ctx->data.fire_flag ==  true)
         ctx->booster_cfg.motor.trigger->send_torque(ctx->data.out_trig_torque);
-    }
+    // else
+    //     ctx->booster_cfg.motor.trigger->send_torque(0);
+
 }
 // ================== FSM 状态实现 ==================
 
@@ -353,7 +344,6 @@ void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
 
 void shoot_17mm_control_t::state_single_bullet_t::exit(owner *ctx)
 {
-    // ctx->_ctx.cmd->single_shoot = false;
     booster_cmd_ptr->single_shoot = false;
 }
 
