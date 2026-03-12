@@ -7,6 +7,8 @@
 #include "pyro_module_base.h"
 #include "pyro_dji_motor_drv.h"
 
+#define FIRE_CHECK false
+
 namespace pyro
 {
 struct booster_cmd_t : cmd_base_t
@@ -16,6 +18,8 @@ struct booster_cmd_t : cmd_base_t
     bool continue_shoot; // 触发连发
     float current_bullet_mps{}; // 当前弹速（裁判系统反馈）
     uint16_t ammo_count{}; //剩余发弹量（裁判系统反馈）
+    uint8_t power_heat{}; //当前热量（除以10 0~26）
+    bool fire_licence{}; //发射许可，为false时拨弹盘绝对不允许转动
     booster_cmd_t()
         : is_fric_on(false), single_shoot(false), continue_shoot(false)
     {
@@ -68,7 +72,7 @@ class shoot_17mm_control_t final
     // --- 派生方法 ---
     static void _fric_control(shoot_17mm_control_t *ctx);
     static void _trig_control(shoot_17mm_control_t *ctx);
-    static void _fire_control(booster_ctx_t *ctx);
+    static void _fire_check(booster_ctx_t *ctx);
     static void _send_motor_command(booster_ctx_t *ctx);
 
     struct data_ctx_t

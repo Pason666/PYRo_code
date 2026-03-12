@@ -96,6 +96,12 @@ void shoot_17mm_control_t::_fsm_execute()
     if (!_ctx.cmd->is_fric_on)
         _main_fsm.change_state(&_state_stop);
     _main_fsm.execute(this);
+    if constexpr (FIRE_CHECK)
+    {
+        _fire_check(&_ctx);
+    }
+    else
+        _ctx.cmd->fire_licence = true;
     _fric_control(this);
     _trig_control(this);
     _send_motor_command(&_ctx);
@@ -138,10 +144,19 @@ void shoot_17mm_control_t::_trig_control(shoot_17mm_control_t *ctx)
             ctx->_ctx.data.target_trig_radps,
             ctx->_ctx.data.current_trig_radps);
 
-    if (!ctx->_ctx.data.trig_output_enable)
+    if (!ctx->_ctx.data.trig_output_enable || !ctx->_ctx.cmd->fire_licence)
     {
         ctx->_ctx.data.out_trig_torque = 0.0f;
     }
+}
+
+void shoot_17mm_control_t::_fire_check(booster_ctx_t *ctx)
+{
+    if (ctx->cmd->power_heat <= 24 || ctx->cmd->ammo_count > 0)
+        ctx->cmd->fire_licence = true;
+    else
+        ctx->cmd->fire_licence = false;
+
 }
 
 void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)

@@ -199,6 +199,7 @@ extern "C"
             referee_data.allowance
                 .projectile_allowance_17mm; // 剩余允许发弹量（0x0208）
         buffer_energy = referee_data.power_heat.buffer_energy;
+        uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat / 10;
 
         can_tx_drv_t::clear(0x102);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
@@ -208,6 +209,7 @@ extern "C"
         const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
         can_tx_drv_t::add_data(0x102, 8, ammo_count_high); // 先发高字节
         can_tx_drv_t::add_data(0x102, 8, ammo_count_low);  // 后发低字节
+        can_tx_drv_t::add_data(0x102, 8, power_heat);
     }
 
     void sentry_chassis_thread(void *argument)
