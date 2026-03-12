@@ -3,9 +3,9 @@
 namespace pyro
 {
 /**********************************************************************/
-float cspeed[4]{};
+float test_cspeed[4]{};
 float tspeed[4]{};
-float ctorque[4]{};
+float test_ctorque[4]{};
 float test_yaw_error{};
 float predict[4];
 /**********************************************************************/
@@ -153,7 +153,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
             ctx->rud_config.pid.wheel_pid[i]->calculate(
                 ctx->data.target_states.modules[i].speed,
                 ctx->data.current_states.modules[i].speed);
-        cspeed[i] = ctx->data.current_states.modules[i].speed;
+        test_cspeed[i] = ctx->data.current_states.modules[i].speed;
         tspeed[i] = ctx->data.target_states.modules[i].speed;
     }
 
@@ -163,7 +163,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
     power_control_drv_t &power_controller = power_control_drv_t::get_instance();
     for (int i = 0; i < POWERCONTROL_NUM; i++)
     {
-        motor_data.at(i).gyro       = ctx->data.current_states.modules[i].angle;
+        motor_data.at(i).gyro       = ctx->data.current_states.modules[i].speed;
         motor_data.at(i).torque_cmd = ctx->data.out_wheel_torque[i];
         motor_data.at(i).power_predict = power_controller.motor_power_predict(
             i, motor_data.at(i).torque_cmd, motor_data.at(i).gyro);
@@ -203,7 +203,7 @@ void rud_chassis_t::_send_motor_command(rud_ctx_t *ctx)
     // 发送轮子扭矩命令
     for (int i = 0; i < 4; i++)
     {
-        ctorque[i] = ctx->data.out_wheel_torque[i];
+        test_ctorque[i] = ctx->data.out_wheel_torque[i];
         ctx->rud_config.motor.wheel[i]->send_torque(
             ctx->data.out_wheel_torque[i]);
     }

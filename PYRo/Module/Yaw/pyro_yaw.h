@@ -18,10 +18,12 @@ namespace pyro
 struct yaw_cmd_t : cmd_base_t
 {
     float target_yaw_imu_angle;
+    double radar_imu{};
 
     // float test_yaw_radps;
 
     bool scanning;
+    bool nav_enable{};
 
     yaw_cmd_t() : target_yaw_imu_angle(0), scanning(false)
     {

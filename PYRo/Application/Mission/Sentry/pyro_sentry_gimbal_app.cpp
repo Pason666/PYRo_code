@@ -14,8 +14,6 @@
 
 using namespace pyro;
 
-extern status_t sentry_booster_init(void *argument);
-
 float test_imu;
 
 gimbal_t *gimbal_ptr                       = nullptr;
@@ -23,9 +21,6 @@ gimbal_cmd_t *gimbal_cmd_ptr               = nullptr;
 gimbal_cfg_t *gimbal_cfg_ptr               = nullptr;
 uart_comm_t *comm                          = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
-
-__attribute__((section(".dma_heap"))) nav2mcu_msg_t nav2mcu_msg;
-__attribute__((section(".dma_heap"))) mcu2nav_msg_t mcu2nav_msg;
 
 void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 {
@@ -45,17 +40,9 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.37f, 0.02f, 0.0f, 0.5f, 6.0f);
     gimbal_cfg.pid.yaw_pos_pid   = new pid_t(25.0f, 1.0f, 0.09f, 5, 10.0f);
 
-
-
     gimbal_cfg.pid.yaw_spd_pid   = new pid_t(0.40f, 0.08f, 0.0f, 0.2f, 6);
 
-    // gimbal_cfg.pid.yaw_pos_pid =
-    //     new pid_t(0.5f, 0, 0.09f, 5, 10.0f);
-    // gimbal_cfg.pid.yaw_spd_pid =
-    //     new pid_t(0.35f, 0.0f, 0.010f, 0.1f, 3);
-
     gimbal_cfg.pitch_offset      = 0.27f;
-    // gimbal_cfg.pitch_offset = 0.024f;
     gimbal_cfg.yaw_offset        = 2.05022361f;
 }
 
@@ -114,7 +101,7 @@ extern "C"
         static bool active                 = false;
         static bool follow_yaw             = false;
         static bool scanning               = false;
-        static int16_t current_yaw_imu_rad = 0;
+        static bool nav_enable             = false;
 
         can_tx_drv_t::clear(0x101);
 
@@ -127,7 +114,7 @@ extern "C"
             follow_yaw = false;
             active     = false;
             scanning   = false;
-            memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
+            nav_enable = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
@@ -138,17 +125,14 @@ extern "C"
             follow_yaw = true;
             active     = true;
             scanning   = false;
-            memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
+            nav_enable = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
-            vx         = static_cast<int8_t>(nav2mcu_msg.data.vx * 127);
-            vy         = static_cast<int8_t>(nav2mcu_msg.data.vy * 127);
-            wz         = 0;
-            delta_yaw  = static_cast<int8_t>(nav2mcu_msg.data.wz * 127);
             follow_yaw = true;
             active     = true;
             scanning   = false;
+            nav_enable = true;
         }
 
         can_tx_drv_t::add_data(0x101, 8, vx);
@@ -158,6 +142,7 @@ extern "C"
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(scanning));
+        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(nav_enable));
         can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
     }
@@ -169,8 +154,6 @@ extern "C"
             chassis_rc2cmd(rc_ctrl_ptr);
             gimbal_rc2cmd(rc_ctrl_ptr);
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
-            comm->read(nav2mcu_msg);
-            comm->write(mcu2nav_msg);
             vTaskDelay(1);
         }
     }
@@ -180,22 +163,6 @@ extern "C"
         gimbal_cmd_ptr = new gimbal_cmd_t();
         gimbal_cfg_ptr = new gimbal_cfg_t();
         comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
-
-        mcu2nav_msg.header.sof       = 0xA5;
-
-        mcu2nav_msg.data.enemy_color = 300;
-        mcu2nav_msg.data.stop_record = 400;
-
-        comm->register_msg_type(
-            sizeof(nav2mcu_msg),
-            reinterpret_cast<const uint8_t *>(&nav2mcu_msg.header),
-            sizeof(nav2mcu_msg.header));
-        comm->register_msg_type(
-            sizeof(mcu2nav_msg),
-            reinterpret_cast<const uint8_t *>(&mcu2nav_msg.header),
-            sizeof(mcu2nav_msg.header));
-        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
-                               sizeof(mcu2nav_msg));
 
         gimbal_ptr = gimbal_t::instance();
         gimbal_config(*gimbal_cfg_ptr);
