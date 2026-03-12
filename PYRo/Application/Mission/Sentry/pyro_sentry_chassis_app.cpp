@@ -90,10 +90,10 @@ void chassis_config(rud_cfg_t &rud_cfg)
     power_control_drv_t &power_controller =
         power_control_drv_t::get_instance(4);
     power_control_drv_t::motor_coefficient_t coef1{};
-    coef1.k1 = 0.0300f;
-    coef1.k2 = 0.0460f;
-    coef1.k3 = 0.1100f;
-    coef1.k4 = 0.7500f;
+    coef1.k1 = 2.8755f; // 3.7267
+    coef1.k2 = 10.4997f; // 8.3800
+    coef1.k3 = 0.1760f; // 0.2082
+    coef1.k4 = 0.5043f; // 0.1346
     power_controller.set_motor_coefficient(1, coef1);
 
     power_control_drv_t::motor_coefficient_t coef2{};

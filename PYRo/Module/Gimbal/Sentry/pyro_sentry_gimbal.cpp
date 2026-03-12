@@ -29,21 +29,25 @@ void gimbal_t::_update_feedback()
     _ctx.data.current_pitch_rad =
         _ctx.gimbal_config.motor.pitch->get_current_position() -
         _ctx.gimbal_config.pitch_offset;
-    wrap_pi(_ctx.data.current_pitch_rad);
+    _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
     _ctx.data.current_pitch_radps =
         _ctx.gimbal_config.motor.pitch->get_current_rotate();
 
     _ctx.data.current_yaw_rad =
         _ctx.gimbal_config.motor.yaw->get_current_position() -
         _ctx.gimbal_config.yaw_offset;
-    wrap_pi(_ctx.data.current_yaw_rad);
+    _ctx.data.current_yaw_rad = wrap_pi(_ctx.data.current_yaw_rad);
     _ctx.data.current_yaw_radps =
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
 }
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
-    wrap_pi(ctx->data.target_pitch_rad);
+    float yaw{}, pitch{}, roll{};
+    ins_drv_t *ins = ins_drv_t::get_instance();
+    ins->get_angles_n(&yaw, &pitch, &roll);
+
+    ctx->data.target_pitch_rad = wrap_pi(ctx->data.target_pitch_rad + gNORM * pitch);
     // pitch轴位置环
     ctx->data.target_pitch_radps =
         ctx->gimbal_config.pid.pitch_pos_pid->calculate(
@@ -54,7 +58,7 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps);
 
-    wrap_pi(ctx->data.target_yaw_rad);
+    ctx->data.target_yaw_rad = wrap_pi(ctx->data.target_yaw_rad);
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);
