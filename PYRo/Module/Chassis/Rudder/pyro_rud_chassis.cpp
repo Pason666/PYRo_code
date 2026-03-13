@@ -1,5 +1,6 @@
 #include "pyro_rud_chassis.h"
 
+float test_power_limit{};
 namespace pyro
 {
 /**********************************************************************/
@@ -170,6 +171,9 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
     }
 
     const float power_limit = referee_drv_t::get_instance()
+                            ->get_data()
+                            .robot_status.chassis_power_limit;
+    test_power_limit = referee_drv_t::get_instance()
                             ->get_data()
                             .robot_status.chassis_power_limit;
 

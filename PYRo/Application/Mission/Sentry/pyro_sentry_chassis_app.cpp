@@ -91,30 +91,30 @@ void chassis_config(rud_cfg_t &rud_cfg)
         power_control_drv_t::get_instance(4);
     power_control_drv_t::motor_coefficient_t coef1{};
     coef1.k1 = 2.8755f; // 3.7267
-    coef1.k2 = 10.4997f; // 8.3800
+    coef1.k2 = 8.3800f; // 8.3800
     coef1.k3 = 0.1760f; // 0.2082
     coef1.k4 = 0.5043f; // 0.1346
     power_controller.set_motor_coefficient(1, coef1);
 
     power_control_drv_t::motor_coefficient_t coef2{};
-    coef2.k1 = 0.0300f;
-    coef2.k2 = 0.0460f;
-    coef2.k3 = 0.1100f;
-    coef2.k4 = 0.7500f;
+    coef2.k1 = 2.8755f; // 3.7267
+    coef2.k2 = 8.3800f; // 8.3800
+    coef2.k3 = 0.1760f; // 0.2082
+    coef2.k4 = 0.5043f; // 0.1346
     power_controller.set_motor_coefficient(2, coef2);
 
     power_control_drv_t::motor_coefficient_t coef3{};
-    coef3.k1 = 0.0300f;
-    coef3.k2 = 0.0460f;
-    coef3.k3 = 0.1100f;
-    coef3.k4 = 0.7500f;
+    coef3.k1 = 2.8755f; // 3.7267
+    coef3.k2 = 8.3800f; // 8.3800
+    coef3.k3 = 0.1760f; // 0.2082
+    coef3.k4 = 0.5043f; // 0.1346
     power_controller.set_motor_coefficient(3, coef3);
 
     power_control_drv_t::motor_coefficient_t coef4{};
-    coef4.k1 = 0.0300f;
-    coef4.k2 = 0.0460f;
-    coef4.k3 = 0.1100f;
-    coef4.k4 = 0.7500f;
+    coef4.k1 = 2.8755f; // 3.7267
+    coef4.k2 = 8.3800f; // 8.3800
+    coef4.k3 = 0.1760f; // 0.2082
+    coef4.k4 = 0.5043f; // 0.1346
     power_controller.set_motor_coefficient(4, coef4);
 }
 

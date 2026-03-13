@@ -36,6 +36,7 @@ public:
     status_t get_rads_n(float* rad_yaw, float* rad_pitch, float* rad_roll);
     status_t get_gyro_b(float* g_yaw, float* g_pitch, float* g_roll);
     status_t get_gyro_n(float* g_yaw, float* g_pitch, float* g_roll);
+    status_t get_accel_b(float* acc_yaw, float* acc_pitch, float* acc_roll);
 
 
 };

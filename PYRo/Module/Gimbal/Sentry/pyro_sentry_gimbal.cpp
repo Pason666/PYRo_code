@@ -7,6 +7,8 @@ float test_current_pitch;
 float test_target_yaw;
 float test_target_pitch;
 
+float gravity_offset;
+
 gimbal_t::gimbal_t()
     : module_base_t("sentry_gimbal", 512, 512, task_base_t::priority_t::HIGH)
 {
@@ -43,11 +45,12 @@ void gimbal_t::_update_feedback()
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
-    float yaw{}, pitch{}, roll{};
+    float acc_yaw{}, acc_pitch{}, acc_roll{}, yaw,  pitch,  roll;
     ins_drv_t *ins = ins_drv_t::get_instance();
-    ins->get_angles_n(&yaw, &pitch, &roll);
+    ins->get_accel_b(&acc_yaw, &acc_pitch, &acc_roll);
+    ins->get_angles_b(&yaw, &pitch, &roll);
 
-    ctx->data.target_pitch_rad = wrap_pi(ctx->data.target_pitch_rad + gNORM * pitch);
+    ctx->data.target_pitch_rad = wrap_pi(ctx->data.target_pitch_rad);
     // pitch轴位置环
     ctx->data.target_pitch_radps =
         ctx->gimbal_config.pid.pitch_pos_pid->calculate(
@@ -57,8 +60,9 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps);
+        // gravity_offset * sin(pitch);//重力补偿
 
-    ctx->data.target_yaw_rad = wrap_pi(ctx->data.target_yaw_rad);
+    ctx->data.target_yaw_rad   = wrap_pi(ctx->data.target_yaw_rad);
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);
