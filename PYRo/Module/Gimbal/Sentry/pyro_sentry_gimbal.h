@@ -9,6 +9,8 @@
 #include "pyro_motor_base.h"
 #include "pyro_ins.h" // 能不能用得上待定
 
+inline uint8_t auto_fire;
+
 namespace pyro
 {
 
@@ -21,12 +23,12 @@ struct gimbal_cmd_t final : public cmd_base_t
         TRACKING,
     };
 
-    float target_yaw_angle;
-    float target_pitch_angle;
+    float target_yaw_rad;
+    float target_pitch_rad;
     gimbal_mode_t gimbal_mode;
 
     gimbal_cmd_t()
-        : target_yaw_angle(0), target_pitch_angle(0),
+        : target_yaw_rad(0), target_pitch_rad(0),
           gimbal_mode(gimbal_mode_t::MANUAL)
     {
     }

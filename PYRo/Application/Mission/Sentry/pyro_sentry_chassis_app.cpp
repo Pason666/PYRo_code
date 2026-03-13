@@ -19,7 +19,7 @@
 using namespace pyro;
 
 float test_imu;
-float buffer_energy;
+float test_buffer_energy;
 
 rud_chassis_t *rud_chassis_ptr             = nullptr;
 yaw_t *yaw_ptr                             = nullptr;
@@ -136,7 +136,7 @@ extern "C"
     {
         std::array<uint8_t, 8> raw_data{};
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x101, raw_data);
-        if (static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 1)) & 0x01)
+        if (static_cast<bool>(static_cast<uint8_t>(raw_data[4] >> 1)) & 0x01)
         {
             rud_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
@@ -147,9 +147,23 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
         yaw_cmd_ptr->nav_enable =
-            static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 3)) & 0x01;
+            static_cast<bool>(static_cast<uint8_t>(raw_data[4] >> 3)) & 0x01;
         rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
-        if (yaw_cmd_ptr->nav_enable == false)
+        // if (yaw_cmd_ptr->nav_enable == false)
+        // {
+        //     rud_cmd_ptr->vx =
+        //         2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) /
+        //         127.0f;
+        //     rud_cmd_ptr->vy =
+        //         2 * static_cast<float>(static_cast<int8_t>(raw_data[1])) /
+        //         127.0f;
+        //     rud_cmd_ptr->wz =
+        //         static_cast<float>(static_cast<int8_t>(raw_data[2]));
+        //     yaw_cmd_ptr->target_yaw_imu_angle -=
+        //         static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
+        //         0.005f;
+        // }
+        // else
         {
             rud_cmd_ptr->vx =
                 2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) /
@@ -163,6 +177,7 @@ extern "C"
                 static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
                 0.005f;
         }
+        memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
 
         yaw_cmd_ptr->scanning =
             static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
@@ -170,24 +185,12 @@ extern "C"
         rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
     }
 
-    void nav2chassis()
-    {
-        if (yaw_cmd_ptr->nav_enable)
-        {
-            rud_cmd_ptr->vx = static_cast<int8_t>(nav2mcu_msg.data.vx * 127);
-            rud_cmd_ptr->vy = static_cast<int8_t>(nav2mcu_msg.data.vy * 127);
-            rud_cmd_ptr->wz = 0;
-            yaw_cmd_ptr->radar_imu = nav2mcu_msg.data.imu;
-        }
-        memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
-    }
-
     void referee_process(const referee_drv_t *referee_drv)
     {
         referee_data = referee_drv->get_data();
     }
 
-    void chassis2booster()
+    void chassis2gimbal()
     {
         const uint8_t bullet_speed_int =
             floor(referee_data.shoot.initial_speed);
@@ -195,21 +198,28 @@ extern "C"
             static_cast<uint8_t>(referee_data.shoot.initial_speed -
                                  bullet_speed_int) *
             100;
-        uint16_t ammo_count =
-            referee_data.allowance
-                .projectile_allowance_17mm; // 剩余允许发弹量（0x0208）
-        buffer_energy = referee_data.power_heat.buffer_energy;
-        uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat / 10;
+        // uint16_t ammo_count =
+        //     referee_data.allowance
+        //         .projectile_allowance_17mm; // 剩余允许发弹量（0x0208）
+        // test_buffer_energy = referee_data.power_heat.buffer_energy;
+        // uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat
+        // / 10;
+        uint8_t enemy_color;
+        if (referee_data.robot_status.robot_id == 7)
+            enemy_color = 0;
+        else
+            enemy_color = 1;
 
         can_tx_drv_t::clear(0x102);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
-        const auto ammo_count_high =
-            static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
-        const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
-        can_tx_drv_t::add_data(0x102, 8, ammo_count_high); // 先发高字节
-        can_tx_drv_t::add_data(0x102, 8, ammo_count_low);  // 后发低字节
-        can_tx_drv_t::add_data(0x102, 8, power_heat);
+        can_tx_drv_t::add_data(0x102, 1, enemy_color);
+        // const auto ammo_count_high =
+        //     static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
+        // const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
+        // can_tx_drv_t::add_data(0x102, 8, ammo_count_high); // 先发高字节
+        // can_tx_drv_t::add_data(0x102, 8, ammo_count_low);  // 后发低字节
+        // can_tx_drv_t::add_data(0x102, 8, power_heat);
     }
 
     void sentry_chassis_thread(void *argument)
@@ -221,10 +231,9 @@ extern "C"
             referee_process(referee_drv_t::get_instance());
 
             gimbal2chassis(rc_ctrl_ptr);
-            nav2chassis();
-            chassis2booster();
+            chassis2gimbal();
 
-            rud_chassis_ptr->set_command(*rud_cmd_ptr);
+            // rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
 
             power_meter->get_data(power_data);
@@ -237,11 +246,11 @@ extern "C"
     {
         // 初始化区域
         can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x101);
-        rud_cmd_ptr     = new rud_cmd_t();
-        rud_cfg_ptr     = new rud_cfg_t();
-        yaw_cmd_ptr     = new yaw_cmd_t();
-        yaw_cfg_ptr     = new yaw_cfg_t();
-        comm            = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
+        rud_cmd_ptr = new rud_cmd_t();
+        rud_cfg_ptr = new rud_cfg_t();
+        yaw_cmd_ptr = new yaw_cmd_t();
+        yaw_cfg_ptr = new yaw_cfg_t();
+        comm        = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
 
         // 注册区域
         mcu2nav_msg.header.sof       = 0xA5;

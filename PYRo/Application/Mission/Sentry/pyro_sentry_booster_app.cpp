@@ -7,6 +7,11 @@
 #include "pyro_mutex.h"
 #include "pyro_rc_hub.h"
 #include "pyro_uart_drv.h"
+#include "pyro_uart_message.h"
+#include "pyro_uart_comm.h"
+#include "pyro_crc.h"
+#include "pyro_sentry_gimbal.h"
+
 using namespace pyro;
 
 shoot_17mm_control_t *booster_ptr     = nullptr;
@@ -14,7 +19,6 @@ booster_cmd_t *booster_cmd_ptr        = nullptr;
 booster_cfg_t *booster_cfg_ptr        = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ptr = nullptr;
 
-float rc_timestamp{};
 uint8_t down_time{};
 
 void booster_config(booster_cfg_t &cfg)
@@ -52,17 +56,21 @@ extern "C"
                 booster_cmd_ptr->is_fric_on = true;
             }
             else
+            {
                 booster_cmd_ptr->is_fric_on = false;
+            }
 
             // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
-            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
+                auto_fire)
             {
                 down_time++;
-                if (down_time > 200)
+                if (down_time > 200 || auto_fire)
                 {
                     booster_cmd_ptr->continue_shoot = true;
-                    booster_cmd_ptr->single_shoot = false;
+                    booster_cmd_ptr->single_shoot   = false;
                     // 注意：连发模式下，不要触发单发，防止逻辑冲突
+                    auto_fire                       = false;
                 }
             }
             else
@@ -94,9 +102,10 @@ extern "C"
         std::array<uint8_t, 8> raw_data{};
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data);
 
-        booster_cmd_ptr->current_bullet_mps = raw_data[0] + raw_data[1] / 100.0f;
-        booster_cmd_ptr->ammo_count = static_cast<int16_t>(raw_data[2] << 8 | raw_data[3]);
-
+        booster_cmd_ptr->current_bullet_mps =
+            raw_data[0] + raw_data[1] / 100.0f;
+        booster_cmd_ptr->ammo_count =
+            static_cast<int16_t>(raw_data[2] << 8 | raw_data[3]);
     }
 
     void booster_thread(void *argument)

@@ -13,6 +13,11 @@ struct frame_tailer
     uint16_t crc16;
 } __attribute__((packed));
 
+struct frame_enter
+{
+    char enter = '\n';
+} __attribute__((packed));
+
 #if ROBOT_ID == SENTRY_ID
 typedef struct
 {
@@ -44,9 +49,11 @@ typedef struct
     float curr_pitch;
     float self_v_magnitude;
     float self_v_angle;
+    float curr_speed;
     uint8_t shoot_delay;
     uint8_t state       : 5;
     uint8_t stop_record : 1;
+    uint8_t autoaim     : 1;
     uint8_t enemy_color : 1;
 } __attribute__((packed)) mcu2aim_data_t;
 
@@ -68,6 +75,7 @@ typedef struct
     frame_header header;
     aim2mcu_data_t data;
     frame_tailer tailer;
+    frame_enter enter;
 } __attribute__((packed)) aim2mcu_msg_t;
 
 typedef struct

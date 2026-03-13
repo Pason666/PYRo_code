@@ -6,6 +6,7 @@
 float a1, a2, a3;
 namespace pyro
 {
+float test_yaw;
 
 float yaw{}, pitch{}, roll{};
 float chassis_yaw_radps{}, chassis_pitch_radps{}, chassis_roll_radps{};
@@ -55,18 +56,19 @@ void yaw_t::_update_feedback()
     ins->get_gyro_n(&chassis_yaw_radps, &chassis_pitch_radps,
                     &chassis_roll_radps);
     _ctx.data.chassis_world_yaw = yaw / 180 * PI;
+
     _ctx.data.gimbal_world_yaw =
         wrap_pi(_ctx.data.chassis_world_yaw - _ctx.data.current_yaw_angle);
-
-    //如果能接收到雷达imu数据就用雷达imu数据覆盖
+    test_yaw = _ctx.data.gimbal_world_yaw;
+    // 如果能接收到雷达imu数据就用雷达imu数据覆盖
     if (_ctx.cmd->radar_imu != 0)
     {
         _ctx.data.gimbal_world_yaw = static_cast<float>(_ctx.cmd->radar_imu);
     }
 
-    a1 = _ctx.data.chassis_world_yaw;
-    a2 = _ctx.data.current_yaw_angle;
-    a3 = _ctx.data.gimbal_world_yaw;
+    a1                   = _ctx.data.chassis_world_yaw;
+    a2                   = _ctx.data.current_yaw_angle;
+    a3                   = _ctx.data.gimbal_world_yaw;
 
     _ctx.data.chassis_wz = chassis_yaw_radps;
 
@@ -89,6 +91,7 @@ void yaw_t::_yaw_control(yaw_ctx_t *ctx)
 void yaw_t::_send_motor_command(yaw_ctx_t *ctx)
 {
     ctx->yaw_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
+    // ctx->yaw_config.motor.yaw->send_torque(0);
 }
 
 void yaw_t::_fsm_execute()
