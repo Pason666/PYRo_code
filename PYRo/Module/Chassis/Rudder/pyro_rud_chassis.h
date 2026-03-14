@@ -1,7 +1,7 @@
 #ifndef __PYRO_RUD_CHASSIS_H__
 #define __PYRO_RUD_CHASSIS_H__
 
-#define POWER_CONTROL_USE 1
+#define POWER_CONTROL_USE 0
 
 #include "pyro_algo_pid.h"
 #include "pyro_module_base.h"

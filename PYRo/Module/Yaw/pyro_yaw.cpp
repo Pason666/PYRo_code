@@ -61,10 +61,6 @@ void yaw_t::_update_feedback()
         wrap_pi(_ctx.data.chassis_world_yaw - _ctx.data.current_yaw_angle);
     test_yaw = _ctx.data.gimbal_world_yaw;
     // 如果能接收到雷达imu数据就用雷达imu数据覆盖
-    if (_ctx.cmd->radar_imu != 0)
-    {
-        _ctx.data.gimbal_world_yaw = static_cast<float>(_ctx.cmd->radar_imu);
-    }
 
     a1                   = _ctx.data.chassis_world_yaw;
     a2                   = _ctx.data.current_yaw_angle;

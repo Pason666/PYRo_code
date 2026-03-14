@@ -64,10 +64,10 @@ void chassis_config(rud_cfg_t &rud_cfg)
         new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4,
                                   can_hub_t::can1); // FR Wheel
 
-    rud_cfg.pid.wheel_pid[0]   = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[1]   = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[2]   = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[3]   = new pid_t(20.0f, 0.1f, 0.00f, 1.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[0]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[1]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[2]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[3]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
     rud_cfg.pid.rud_pos_pid[0] = new pid_t(15.0f, 0.0f, 0.00f, 0.0f, 10.0f);
     rud_cfg.pid.rud_pos_pid[1] = new pid_t(15.0f, 0.0f, 0.00f, 0.0f, 10.0f);
@@ -79,8 +79,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid =
-        new pid_t(8.0f, 0.01f, 0.001f, 0.1f, 4.0f, 0, 4, 5);
+    rud_cfg.pid.follow_yaw_pid = new pid_t(9.0f, 0.0f, 0.01f, 0, 6.0f, 0, 4, 5);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -125,7 +124,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(150, 0, 0.9f, 1, 6, 0, 4, 5);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(140, 0, 0.9f, 1, 6, 0, 4, 5);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
@@ -147,23 +146,9 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
         yaw_cmd_ptr->nav_enable =
-            static_cast<bool>(static_cast<uint8_t>(raw_data[4] >> 3)) & 0x01;
+            static_cast<bool>(static_cast<uint8_t>(raw_data[5]));
         rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
-        // if (yaw_cmd_ptr->nav_enable == false)
-        // {
-        //     rud_cmd_ptr->vx =
-        //         2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) /
-        //         127.0f;
-        //     rud_cmd_ptr->vy =
-        //         2 * static_cast<float>(static_cast<int8_t>(raw_data[1])) /
-        //         127.0f;
-        //     rud_cmd_ptr->wz =
-        //         static_cast<float>(static_cast<int8_t>(raw_data[2]));
-        //     yaw_cmd_ptr->target_yaw_imu_angle -=
-        //         static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
-        //         0.005f;
-        // }
-        // else
+        if (yaw_cmd_ptr->nav_enable == false)
         {
             rud_cmd_ptr->vx =
                 2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) /
@@ -176,8 +161,15 @@ extern "C"
             yaw_cmd_ptr->target_yaw_imu_angle -=
                 static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
                 0.005f;
+            memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
         }
-        memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
+        else
+        {
+            rud_cmd_ptr->vx = static_cast<int8_t>(nav2mcu_msg.data.vx * 127);
+            rud_cmd_ptr->vy = static_cast<int8_t>(nav2mcu_msg.data.vy * 127);
+            rud_cmd_ptr->wz = 0;
+            yaw_cmd_ptr->target_yaw_imu_angle = 0;
+        }
 
         yaw_cmd_ptr->scanning =
             static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
@@ -233,7 +225,7 @@ extern "C"
             gimbal2chassis(rc_ctrl_ptr);
             chassis2gimbal();
 
-            // rud_chassis_ptr->set_command(*rud_cmd_ptr);
+            rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
 
             power_meter->get_data(power_data);
@@ -241,7 +233,7 @@ extern "C"
             vTaskDelay(1);
         }
     }
-
+    uint8_t nav2mcu_msg_header = 0xA5;
     status_t sentry_chassis_init(void *argument)
     {
         // 初始化区域
@@ -256,14 +248,13 @@ extern "C"
         mcu2nav_msg.header.sof       = 0xA5;
         mcu2nav_msg.data.enemy_color = 300;
         mcu2nav_msg.data.stop_record = 400;
-        comm->register_msg_type(
-            sizeof(nav2mcu_msg),
-            reinterpret_cast<const uint8_t *>(&nav2mcu_msg.header),
-            sizeof(nav2mcu_msg.header));
-        comm->register_msg_type(
-            sizeof(mcu2nav_msg),
-            reinterpret_cast<const uint8_t *>(&mcu2nav_msg.header),
-            sizeof(mcu2nav_msg.header));
+
+        comm->register_msg_type(sizeof(nav2mcu_msg), &nav2mcu_msg_header,
+                                sizeof(nav2mcu_msg.header));
+        // comm->register_msg_type(
+        //     sizeof(mcu2nav_msg),
+        //     reinterpret_cast<const uint8_t *>(&mcu2nav_msg.header),
+        //     sizeof(mcu2nav_msg.header));
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
                                sizeof(mcu2nav_msg));
 

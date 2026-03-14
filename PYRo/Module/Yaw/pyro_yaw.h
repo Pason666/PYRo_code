@@ -18,7 +18,7 @@ namespace pyro
 struct yaw_cmd_t : cmd_base_t
 {
     float target_yaw_imu_angle;
-    double radar_imu{};
+    float radar_imu{};
 
     // float test_yaw_radps;
 

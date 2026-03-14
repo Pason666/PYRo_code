@@ -25,6 +25,8 @@ struct gimbal_cmd_t final : public cmd_base_t
 
     float target_yaw_rad;
     float target_pitch_rad;
+    float aim_imu_pitch_rad;
+    float aim_imu_yaw_rad;
     gimbal_mode_t gimbal_mode;
 
     gimbal_cmd_t()

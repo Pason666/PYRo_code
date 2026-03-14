@@ -15,7 +15,7 @@ struct frame_tailer
 
 struct frame_enter
 {
-    char enter = '\n';
+    uint8_t enter;
 } __attribute__((packed));
 
 #if ROBOT_ID == SENTRY_ID
@@ -25,8 +25,9 @@ typedef struct
     float vy;
     float vz;
     float wz;
-    double imu;
+    float imu;
     uint8_t stuck;
+    uint8_t mode;
 } __attribute__((packed)) nav2mcu_data_t;
 
 typedef struct
@@ -59,6 +60,7 @@ typedef struct
 
 typedef struct
 {
+    uint8_t is_gimbal;
     uint16_t stop_record;
     uint16_t enemy_color;
 } __attribute__((packed)) mcu2nav_data_t;
@@ -75,14 +77,14 @@ typedef struct
     frame_header header;
     aim2mcu_data_t data;
     frame_tailer tailer;
-    frame_enter enter;
 } __attribute__((packed)) aim2mcu_msg_t;
 
 typedef struct
 {
-    frame_header header;
-    mcu2aim_data_t data;
-    frame_tailer tailer;
+    frame_header header{};
+    mcu2aim_data_t data{};
+    frame_tailer tailer{};
+    frame_enter enter;
 } __attribute__((packed)) mcu2aim_msg_t;
 
 typedef struct
@@ -91,6 +93,11 @@ typedef struct
     mcu2nav_data_t data;
     frame_tailer tailer;
 } __attribute__((packed)) mcu2nav_msg_t;
+
+typedef struct
+{
+
+} __attribute__((packed)) handshake_protocol_t;
 
 #endif
 

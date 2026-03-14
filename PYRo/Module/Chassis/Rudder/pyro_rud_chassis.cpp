@@ -115,8 +115,21 @@ void rud_chassis_t::_kinematics_solve()
         test_yaw_error = _ctx.cmd->yaw_error;
         if (_ctx.cmd->follow_yaw == true)
         {
-            _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-                0, _ctx.cmd->yaw_error);
+            if (_ctx.cmd->yaw_error > 2)
+                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                    1, _ctx.cmd->yaw_error);
+            else if (_ctx.cmd->yaw_error < -2)
+                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                    -1, _ctx.cmd->yaw_error);
+            else if (_ctx.cmd->yaw_error > 1)
+                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                    0.5, _ctx.cmd->yaw_error);
+            else if (_ctx.cmd->yaw_error < -1)
+                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                    -0.5, _ctx.cmd->yaw_error);
+            else
+                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                    0, _ctx.cmd->yaw_error);
         }
         else if (_ctx.cmd->follow_yaw == false)
         {
@@ -155,7 +168,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
                 ctx->data.target_states.modules[i].speed,
                 ctx->data.current_states.modules[i].speed);
         test_cspeed[i] = ctx->data.current_states.modules[i].speed;
-        tspeed[i] = ctx->data.target_states.modules[i].speed;
+        tspeed[i]      = ctx->data.target_states.modules[i].speed;
     }
 
 #if POWER_CONTROL_USE
@@ -171,11 +184,11 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
     }
 
     const float power_limit = referee_drv_t::get_instance()
-                            ->get_data()
-                            .robot_status.chassis_power_limit;
+                                  ->get_data()
+                                  .robot_status.chassis_power_limit;
     test_power_limit = referee_drv_t::get_instance()
-                            ->get_data()
-                            .robot_status.chassis_power_limit;
+                           ->get_data()
+                           .robot_status.chassis_power_limit;
 
     // 不平均分配
     // float custom_ratios[POWERCONTROL_NUM] = {0.1f, 0.1f, 0.1f, 0.1f};

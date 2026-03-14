@@ -5,7 +5,7 @@ namespace pyro
 float test_current_yaw;
 
 float test_target_yaw;
-float test_target_pitch;
+float test_current_pitch;
 
 float gravity_offset = 0.79f;
 
@@ -31,6 +31,9 @@ void gimbal_t::_update_feedback()
     _ctx.data.current_pitch_rad =
         _ctx.gimbal_config.motor.pitch->get_current_position() -
         _ctx.gimbal_config.pitch_offset;
+
+    test_current_pitch = _ctx.data.current_pitch_rad;
+
     _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
     _ctx.data.current_pitch_radps =
         _ctx.gimbal_config.motor.pitch->get_current_rotate();
@@ -39,15 +42,16 @@ void gimbal_t::_update_feedback()
         _ctx.gimbal_config.motor.yaw->get_current_position() -
         _ctx.gimbal_config.yaw_offset;
     _ctx.data.current_yaw_rad = wrap_pi(_ctx.data.current_yaw_rad);
+
+    test_current_yaw = _ctx.data.current_yaw_rad;
     _ctx.data.current_yaw_radps =
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
 }
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
-    float acc_yaw{}, acc_pitch{}, acc_roll{}, yaw, pitch, roll;
+    float yaw, pitch, roll;
     ins_drv_t *ins = ins_drv_t::get_instance();
-    ins->get_accel_b(&acc_yaw, &acc_pitch, &acc_roll);
     ins->get_angles_b(&yaw, &pitch, &roll);
 
     ctx->data.target_pitch_rad = wrap_pi(ctx->data.target_pitch_rad);

@@ -15,6 +15,9 @@
 using namespace pyro;
 
 float test_imu;
+float test_aim_pitch;
+float test_aim_yaw;
+float test_origin_aim_pitch;
 
 float bullet_speed;
 bool autoaim = false;
@@ -73,24 +76,12 @@ extern "C"
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
             gimbal_cmd_ptr->target_pitch_rad -= p_ctrl->rc.ch_ry * 0.001f;
-            if (gimbal_cmd_ptr->target_pitch_rad >
-                gimbal_cfg_ptr->pitch_max_rad)
-                gimbal_cmd_ptr->target_pitch_rad =
-                    gimbal_cfg_ptr->pitch_max_rad;
-            if (gimbal_cmd_ptr->target_pitch_rad <
-                gimbal_cfg_ptr->pitch_min_rad)
-                gimbal_cmd_ptr->target_pitch_rad =
-                    gimbal_cfg_ptr->pitch_min_rad;
             gimbal_cmd_ptr->target_yaw_rad -= p_ctrl->rc.ch_rx * 0.005f;
-            if (gimbal_cmd_ptr->target_yaw_rad > gimbal_cfg_ptr->yaw_max_rad)
-                gimbal_cmd_ptr->target_yaw_rad = gimbal_cfg_ptr->yaw_max_rad;
-            if (gimbal_cmd_ptr->target_yaw_rad < gimbal_cfg_ptr->yaw_min_rad)
-                gimbal_cmd_ptr->target_yaw_rad = gimbal_cfg_ptr->yaw_min_rad;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::TRACKING;
         }
     }
 
@@ -134,7 +125,7 @@ extern "C"
             active     = true;
             scanning   = false;
             nav_enable = false;
-            autoaim    = true;
+            autoaim    = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
@@ -151,8 +142,8 @@ extern "C"
         can_tx_drv_t::add_data(0x101, 8, delta_yaw);
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
         can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
-        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(scanning));
-        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(nav_enable));
+        can_tx_drv_t::add_data(0x101, 6, static_cast<uint8_t>(scanning));
+        can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(nav_enable));
         can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
     }
@@ -185,13 +176,47 @@ extern "C"
         mcu2aim_msg.data.stop_record      = 0;
         mcu2aim_msg.data.autoaim          = autoaim;
         mcu2aim_msg.data.enemy_color      = enemy_color;
+        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2aim_msg),
+                               sizeof(mcu2aim_msg) - 1);
     }
 
     void aim2mcu_process()
     {
-        gimbal_cmd_ptr->target_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
-        gimbal_cmd_ptr->target_pitch_rad = aim2mcu_msg.data.shoot_pitch;
-        auto_fire = aim2mcu_msg.data.fire;
+        if (autoaim)
+        {
+            float last_aim_pitch{}, last_aim_yaw{};
+            if (abs(aim2mcu_msg.data.shoot_yaw) > 5)
+            {
+                aim2mcu_msg.data.shoot_yaw = last_aim_yaw;
+            }
+            else
+            {
+                last_aim_yaw = aim2mcu_msg.data.shoot_yaw;
+            }
+
+            if (abs(aim2mcu_msg.data.shoot_pitch) > 5)
+            {
+                aim2mcu_msg.data.shoot_pitch = last_aim_pitch;
+            }
+            else
+            {
+                last_aim_pitch = aim2mcu_msg.data.shoot_pitch;
+            }
+
+            auto_fire      = aim2mcu_msg.data.fire;
+        }
+    }
+
+    void rad_process()
+    {
+        if (gimbal_cmd_ptr->target_pitch_rad > gimbal_cfg_ptr->pitch_max_rad)
+            gimbal_cmd_ptr->target_pitch_rad = gimbal_cfg_ptr->pitch_max_rad;
+        if (gimbal_cmd_ptr->target_pitch_rad < gimbal_cfg_ptr->pitch_min_rad)
+            gimbal_cmd_ptr->target_pitch_rad = gimbal_cfg_ptr->pitch_min_rad;
+        if (gimbal_cmd_ptr->target_yaw_rad > gimbal_cfg_ptr->yaw_max_rad)
+            gimbal_cmd_ptr->target_yaw_rad = gimbal_cfg_ptr->yaw_max_rad;
+        if (gimbal_cmd_ptr->target_yaw_rad < gimbal_cfg_ptr->yaw_min_rad)
+            gimbal_cmd_ptr->target_yaw_rad = gimbal_cfg_ptr->yaw_min_rad;
     }
 
     void sentry_gimbal_thread(void *argument)
@@ -199,35 +224,29 @@ extern "C"
         while (true)
         {
             comm->read(aim2mcu_msg);
-            comm->write(mcu2aim_msg);
             chassis_rc2cmd(rc_ctrl_ptr);
             gimbal_rc2cmd(rc_ctrl_ptr);
             chassis2gimbal();
             mcu2aim_process();
+            comm->write(mcu2aim_msg);
+            aim2mcu_process();
+            rad_process();
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
             vTaskDelay(1);
         }
     }
-
+    uint8_t header = 0xA5;
     status_t sentry_gimbal_init(void *argument)
     {
         gimbal_cmd_ptr = new gimbal_cmd_t();
         gimbal_cfg_ptr = new gimbal_cfg_t();
         comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
 
-        mcu2aim_msg.header.sof = 0xA5;
+        mcu2aim_msg.header.sof  = 0xA5;
+        mcu2aim_msg.enter.enter = '\n';
 
-        comm->register_msg_type(
-            sizeof(aim2mcu_msg),
-            reinterpret_cast<const uint8_t *>(&aim2mcu_msg.header),
-            sizeof(aim2mcu_msg.header));
-        comm->register_msg_type(
-            sizeof(mcu2aim_msg),
-            reinterpret_cast<const uint8_t *>(&mcu2aim_msg.header),
-            sizeof(mcu2aim_msg.header));
-        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2aim_msg),
-                               sizeof(mcu2aim_msg));
-
+        comm->register_msg_type(sizeof(aim2mcu_msg), &header,
+                                sizeof(aim2mcu_msg.header));
 
         gimbal_ptr = gimbal_t::instance();
         gimbal_config(*gimbal_cfg_ptr);
