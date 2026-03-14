@@ -1,5 +1,4 @@
 #include "pyro_sentry_gimbal.h"
-float test_pitch;
 namespace pyro
 {
 float test_current_yaw;
@@ -62,7 +61,6 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 
     // pitch轴速度环
     pitch = pitch / 180 * PI;
-    test_pitch = pitch;
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) +

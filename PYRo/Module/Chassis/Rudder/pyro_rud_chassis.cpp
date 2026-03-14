@@ -115,21 +115,12 @@ void rud_chassis_t::_kinematics_solve()
         test_yaw_error = _ctx.cmd->yaw_error;
         if (_ctx.cmd->follow_yaw == true)
         {
-            if (_ctx.cmd->yaw_error > 2)
-                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-                    1, _ctx.cmd->yaw_error);
-            else if (_ctx.cmd->yaw_error < -2)
-                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-                    -1, _ctx.cmd->yaw_error);
-            else if (_ctx.cmd->yaw_error > 1)
-                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-                    0.5, _ctx.cmd->yaw_error);
-            else if (_ctx.cmd->yaw_error < -1)
-                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-                    -0.5, _ctx.cmd->yaw_error);
-            else
-                _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
-                    0, _ctx.cmd->yaw_error);
+            // if (abs(_ctx.cmd->yaw_error) < 0.05f)
+            // {
+            //     _ctx.cmd->yaw_error = 0;
+            // }
+            _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+                0, _ctx.cmd->yaw_error);
         }
         else if (_ctx.cmd->follow_yaw == false)
         {

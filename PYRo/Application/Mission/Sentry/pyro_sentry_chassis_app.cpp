@@ -69,17 +69,17 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.wheel_pid[2]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
     rud_cfg.pid.wheel_pid[3]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
-    rud_cfg.pid.rud_pos_pid[0] = new pid_t(15.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[1] = new pid_t(15.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[2] = new pid_t(15.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[3] = new pid_t(15.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[0] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[1] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[2] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[3] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid = new pid_t(9.0f, 0.0f, 0.01f, 0, 6.0f, 0, 4, 5);
+    rud_cfg.pid.follow_yaw_pid = new pid_t(7.0f, 0.0f, 0.01f, 0, 6.0f, 0, 4, 5);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -124,8 +124,8 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(140, 0, 0.9f, 1, 6, 0, 4, 5);
-    yaw_cfg.pid.yaw_spd_pid = new pid_t(0.88f, 0.001f, 0.001f, 0.8f, 5);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(150, 0, 0, 1, 6, 0, 4, 5);
+    yaw_cfg.pid.yaw_spd_pid = new pid_t(0.70f, 0.0f, 0, 0.8f, 9);
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
 
@@ -165,8 +165,8 @@ extern "C"
         }
         else
         {
-            rud_cmd_ptr->vx = static_cast<int8_t>(nav2mcu_msg.data.vx * 127);
-            rud_cmd_ptr->vy = static_cast<int8_t>(nav2mcu_msg.data.vy * 127);
+            rud_cmd_ptr->vx = nav2mcu_msg.data.vx;
+            rud_cmd_ptr->vy = nav2mcu_msg.data.vy;
             rud_cmd_ptr->wz = 0;
             yaw_cmd_ptr->target_yaw_imu_angle = 0;
         }

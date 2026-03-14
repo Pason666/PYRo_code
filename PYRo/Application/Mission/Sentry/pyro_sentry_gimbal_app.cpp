@@ -15,7 +15,6 @@
 using namespace pyro;
 
 float test_imu;
-float test_aim_pitch;
 float test_aim_yaw;
 float test_origin_aim_pitch;
 
@@ -48,9 +47,9 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 
     gimbal_cfg.pid.pitch_pos_pid = new pid_t(50.0f, 0.05f, 0.09f, 0.5f, 10.0f);
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.37f, 0.02f, 0.0f, 0.5f, 6.0f);
-    gimbal_cfg.pid.yaw_pos_pid   = new pid_t(25.0f, 1.0f, 0.09f, 5, 10.0f);
 
-    gimbal_cfg.pid.yaw_spd_pid   = new pid_t(0.40f, 0.08f, 0.0f, 0.2f, 6);
+    gimbal_cfg.pid.yaw_pos_pid   = new pid_t(50.0f, 0.0f, 0.09f, 5, 100.0f);
+    gimbal_cfg.pid.yaw_spd_pid   = new pid_t(0.40f, 0.08f, 0.0f, 0.2f, 3);
 
     gimbal_cfg.pitch_offset      = 0.27f;
     gimbal_cfg.yaw_offset        = 2.05022361f;
@@ -81,7 +80,7 @@ extern "C"
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::TRACKING;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
         }
     }
 
@@ -133,7 +132,7 @@ extern "C"
             active     = true;
             scanning   = false;
             nav_enable = true;
-            autoaim    = true;
+            autoaim    = false;
         }
 
         can_tx_drv_t::add_data(0x101, 8, vx);
@@ -202,8 +201,7 @@ extern "C"
             {
                 last_aim_pitch = aim2mcu_msg.data.shoot_pitch;
             }
-
-            auto_fire      = aim2mcu_msg.data.fire;
+            auto_fire = aim2mcu_msg.data.fire;
         }
     }
 
