@@ -177,6 +177,18 @@ extern "C"
         rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
     }
 
+    void imu2chassis()
+    {
+        std::array<uint8_t, 8> raw_data{};
+        can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x103, raw_data);
+        float imu_angle;
+        memcpy(&imu_angle, raw_data.data(), 4);
+        if(imu_angle == 0)
+            return;
+        else
+            yaw_cmd_ptr->current_yaw_imu_rad = imu_angle / 180 * PI;
+    }
+
     void referee_process(const referee_drv_t *referee_drv)
     {
         referee_data = referee_drv->get_data();
@@ -220,6 +232,8 @@ extern "C"
         {
             comm->read(nav2mcu_msg);
             comm->write(mcu2nav_msg);
+            imu2chassis();
+
             referee_process(referee_drv_t::get_instance());
 
             gimbal2chassis(rc_ctrl_ptr);
@@ -238,6 +252,7 @@ extern "C"
     {
         // 初始化区域
         can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x101);
+        can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x103);
         rud_cmd_ptr = new rud_cmd_t();
         rud_cfg_ptr = new rud_cfg_t();
         yaw_cmd_ptr = new yaw_cmd_t();
