@@ -1,12 +1,11 @@
 #include "pyro_sentry_gimbal.h"
 namespace pyro
 {
-float test_current_yaw;
 
-float test_target_yaw;
-float test_current_pitch;
+float test_target_pos;
+float test_current_pos;
 
-float gravity_offset = 0.79f;
+float gravity_offset = 0.7;
 
 gimbal_t::gimbal_t()
     : module_base_t("sentry_gimbal", 512, 512, task_base_t::priority_t::HIGH)
@@ -28,10 +27,8 @@ void gimbal_t::_update_feedback()
 
     // 1. 获取当前角度和角速度
     _ctx.data.current_pitch_rad =
-        _ctx.gimbal_config.motor.pitch->get_current_position() -
-        _ctx.gimbal_config.pitch_offset;
+        _ctx.gimbal_config.motor.pitch->get_current_position();
 
-    test_current_pitch = _ctx.data.current_pitch_rad;
 
     _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
     _ctx.data.current_pitch_radps =
@@ -42,38 +39,50 @@ void gimbal_t::_update_feedback()
         _ctx.gimbal_config.yaw_offset;
     _ctx.data.current_yaw_rad = wrap_pi(_ctx.data.current_yaw_rad);
 
-    test_current_yaw = _ctx.data.current_yaw_rad;
     _ctx.data.current_yaw_radps =
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
 }
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
+    if (ctx->data.target_pitch_rad > ctx->gimbal_config.pitch_max_rad)
+        ctx->data.target_pitch_rad = ctx->gimbal_config.pitch_max_rad;
+    if (ctx->data.target_pitch_rad < ctx->gimbal_config.pitch_min_rad)
+        ctx->data.target_pitch_rad = ctx->gimbal_config.pitch_min_rad;
+    if (ctx->data.target_yaw_rad > ctx->gimbal_config.yaw_max_rad)
+        ctx->data.target_yaw_rad = ctx->gimbal_config.yaw_max_rad;
+    if (ctx->data.target_yaw_rad < ctx->gimbal_config.yaw_min_rad)
+        ctx->data.target_yaw_rad = ctx->gimbal_config.yaw_min_rad;
+
     float yaw, pitch, roll;
     ins_drv_t *ins = ins_drv_t::get_instance();
     ins->get_angles_b(&yaw, &pitch, &roll);
 
-    ctx->data.target_pitch_rad = wrap_pi(ctx->data.target_pitch_rad);
     // pitch轴位置环
     ctx->data.target_pitch_radps =
         ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, ctx->data.current_pitch_rad);
 
     // pitch轴速度环
-    pitch = pitch / 180 * PI;
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
-            ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) +
-        - gravity_offset * cos(pitch); // 重力补偿
+            ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) -
+        gravity_offset * cos(pitch / 180 * PI); // 重力补偿
 
-    ctx->data.target_yaw_rad   = wrap_pi(ctx->data.target_yaw_rad);
     // yaw轴位置环
-    ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
+    ctx->data.target_yaw_radps =
+    ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);
 
     // yaw轴速度环
     ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
         ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+
+    // ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
+    //     ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+
+    test_current_pos = ctx->data.current_yaw_rad;
+    test_target_pos  = ctx->data.target_yaw_rad;
 }
 
 void gimbal_t::_send_motor_command(gimbal_context_t *ctx)

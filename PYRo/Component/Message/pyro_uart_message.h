@@ -60,9 +60,8 @@ typedef struct
 
 typedef struct
 {
-    uint8_t is_gimbal;
-    uint16_t stop_record;
-    uint16_t enemy_color;
+    uint16_t hp;
+    uint16_t ammo;
 } __attribute__((packed)) mcu2nav_data_t;
 
 typedef struct

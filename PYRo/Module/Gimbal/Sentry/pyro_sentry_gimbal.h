@@ -14,23 +14,27 @@ inline uint8_t auto_fire;
 namespace pyro
 {
 
-struct gimbal_cmd_t final : public cmd_base_t
+struct gimbal_cmd_t final : cmd_base_t
 {
     enum class gimbal_mode_t
     {
         MANUAL,
         SCANNING,
-        TRACKING,
     };
 
-    float target_yaw_rad;
-    float target_pitch_rad;
-    float aim_imu_pitch_rad;
-    float aim_imu_yaw_rad;
+    float target_delta_yaw_rad;
+    float target_delta_pitch_rad;
+    float aim_imu_pitch_rad{};
+    float aim_imu_yaw_rad{};
+    bool is_aiming = false;
+
+    float test_pitch_radps{};
+    float test_yaw_radps{};
+
     gimbal_mode_t gimbal_mode;
 
     gimbal_cmd_t()
-        : target_yaw_rad(0), target_pitch_rad(0),
+        : target_delta_yaw_rad(0), target_delta_pitch_rad(0),
           gimbal_mode(gimbal_mode_t::MANUAL)
     {
     }
@@ -55,7 +59,6 @@ struct gimbal_cfg_t
     motor_cfg_t motor;
     pid_cfg_t pid;
     float yaw_offset{};
-    float pitch_offset{};
     float yaw_max_rad{};
     float yaw_min_rad{};
     float pitch_max_rad{};

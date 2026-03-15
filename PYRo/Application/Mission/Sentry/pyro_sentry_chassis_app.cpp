@@ -69,17 +69,18 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.wheel_pid[2]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
     rud_cfg.pid.wheel_pid[3]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
-    rud_cfg.pid.rud_pos_pid[0] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[1] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[2] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[3] = new pid_t(23.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[0] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[1] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[2] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[3] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid = new pid_t(7.0f, 0.0f, 0.01f, 0, 6.0f, 0, 4, 5);
+    rud_cfg.pid.follow_yaw_pid =
+        new pid_t(6.0f, 0.0f, 0.0004f, 0, 6.0f, 0, 10, 11);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -124,8 +125,11 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(25, 0, 0, 1, 6, 0, 4, 5);
-    yaw_cfg.pid.yaw_spd_pid = new pid_t(0.70f, 0.0f, 0, 0.8f, 9);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(1200, 30, 0.0005, 1, 8);
+    yaw_cfg.pid.yaw_spd_pid = new pid_t(0.42, 0, 0.008, 2, 5);
+
+    // Nav_PID_spd=PID_Factory_Function(20,30,0.01,1000,1000,0,0.2,20);
+    // Nav_PID_pos=PID_Factory_Function(0.52,0,0.008,1000,1000,0,1,20);
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
 
@@ -165,9 +169,9 @@ extern "C"
         }
         else
         {
-            rud_cmd_ptr->vx = nav2mcu_msg.data.vx;
-            rud_cmd_ptr->vy = nav2mcu_msg.data.vy;
-            rud_cmd_ptr->wz = 0;
+            rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
+            rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
+            rud_cmd_ptr->wz                   = 0;
             yaw_cmd_ptr->target_yaw_imu_angle = 0;
         }
 
@@ -183,7 +187,7 @@ extern "C"
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x103, raw_data);
         float imu_angle;
         memcpy(&imu_angle, raw_data.data(), 4);
-        if(imu_angle == 0)
+        if (imu_angle == 0)
             return;
         yaw_cmd_ptr->current_yaw_imu_rad = imu_angle / 180 * PI;
     }
@@ -225,15 +229,24 @@ extern "C"
         // can_tx_drv_t::add_data(0x102, 8, power_heat);
     }
 
+    void mcu2nav_process()
+    {
+        mcu2nav_msg.data.hp = referee_data.game_robot_hp.robot_7_hp;
+        mcu2nav_msg.data.ammo = referee_data.allowance.projectile_allowance_17mm;
+        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
+                               sizeof(mcu2nav_msg)); // 添加CRC校验
+        comm->write(mcu2nav_msg);
+    }
+
     void sentry_chassis_thread(void *argument)
     {
         while (true)
         {
             comm->read(nav2mcu_msg);
-            comm->write(mcu2nav_msg);
             imu2chassis();
 
             referee_process(referee_drv_t::get_instance());
+            mcu2nav_process();
 
             gimbal2chassis(rc_ctrl_ptr);
             chassis2gimbal();
@@ -259,18 +272,10 @@ extern "C"
         comm        = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
 
         // 注册区域
-        mcu2nav_msg.header.sof       = 0xA5;
-        mcu2nav_msg.data.enemy_color = 300;
-        mcu2nav_msg.data.stop_record = 400;
+        mcu2nav_msg.header.sof = 0xA5;
 
         comm->register_msg_type(sizeof(nav2mcu_msg), &nav2mcu_msg_header,
                                 sizeof(nav2mcu_msg.header));
-        // comm->register_msg_type(
-        //     sizeof(mcu2nav_msg),
-        //     reinterpret_cast<const uint8_t *>(&mcu2nav_msg.header),
-        //     sizeof(mcu2nav_msg.header));
-        append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
-                               sizeof(mcu2nav_msg));
 
         // 发送命令区域
         rud_chassis_ptr = rud_chassis_t::instance();

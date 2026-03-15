@@ -16,25 +16,25 @@ void gimbal_t::fsm_active_t::fsm_tracking_t::state_turning_fine_t::enter(
 void gimbal_t::fsm_active_t::fsm_tracking_t::state_turning_fine_t::execute(
     owner *owner)
 {
+    if (owner->_ctx.cmd->is_aiming == false)
+    {
+        this->request_switch(&owner->_active_state._manual_state);
+    }
+
     float yaw, pitch, roll;
     ins_drv_t *ins = ins_drv_t::get_instance();
     ins->get_angles_b(&yaw, &pitch, &roll);
-    pitch           = pitch / 180 * PI;
+    pitch = pitch / 180 * PI;
+    yaw   = yaw / 180 * PI;
 
-    test_aim_pitch = owner->_ctx.cmd->aim_imu_pitch_rad;
-    test_pitch = pitch;
-
-
-    const float delta_pitch_imu = pitch - owner->_ctx.cmd->aim_imu_pitch_rad;
     owner->_ctx.data.target_pitch_rad =
-        owner->_ctx.data.current_pitch_rad + delta_pitch_imu;
+        owner->_ctx.data.current_pitch_rad -
+        (pitch - owner->_ctx.cmd->aim_imu_pitch_rad);
 
-    test_target_pitch_rad = owner->_ctx.data.target_pitch_rad;
-    test_current_pitch_rad = owner->_ctx.data.current_pitch_rad;
+    // owner->_ctx.data.target_yaw_rad = owner->_ctx.data.current_yaw_rad -
+    //                                   (yaw - owner->_ctx.cmd->aim_imu_yaw_rad);
 
-    const float delta_yaw_imu = yaw - owner->_ctx.cmd->aim_imu_yaw_rad;
-    owner->_ctx.data.target_yaw_rad =
-        owner->_ctx.data.current_yaw_rad + delta_yaw_imu * 0.2f;
+    owner->_ctx.data.target_yaw_rad = 0;
 
     _gimbal_control(&owner->_ctx);
     _send_motor_command(&owner->_ctx);
