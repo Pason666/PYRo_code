@@ -124,7 +124,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(150, 0, 0, 1, 6, 0, 4, 5);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(25, 0, 0, 1, 6, 0, 4, 5);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(0.70f, 0.0f, 0, 0.8f, 9);
     yaw_cfg.yaw_offset      = 0.257089615f;
 }
@@ -185,8 +185,7 @@ extern "C"
         memcpy(&imu_angle, raw_data.data(), 4);
         if(imu_angle == 0)
             return;
-        else
-            yaw_cmd_ptr->current_yaw_imu_rad = imu_angle / 180 * PI;
+        yaw_cmd_ptr->current_yaw_imu_rad = imu_angle / 180 * PI;
     }
 
     void referee_process(const referee_drv_t *referee_drv)

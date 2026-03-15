@@ -19,9 +19,7 @@ yaw_t::yaw_t() : module_base_t("yaw", 512, 512, task_base_t::priority_t::HIGH)
 
 float yaw_t::get_yaw_error() const
 {
-    float world_yaw_error =
-        wrap_pi(_ctx.data.gimbal_world_yaw - _ctx.data.chassis_world_yaw);
-    return world_yaw_error;
+    return -_ctx.data.current_yaw_angle;
 }
 
 status_t yaw_t::_init()
@@ -57,14 +55,6 @@ void yaw_t::_update_feedback()
                     &chassis_roll_radps);
     _ctx.data.chassis_world_yaw = yaw / 180 * PI;
     test_yaw = yaw;
-
-    _ctx.data.gimbal_world_yaw =
-        wrap_pi(_ctx.data.chassis_world_yaw - _ctx.data.current_yaw_angle);
-    // 如果能接收到雷达imu数据就用雷达imu数据覆盖
-
-    a1                   = _ctx.data.chassis_world_yaw;
-    a2                   = _ctx.data.current_yaw_angle;
-    a3                   = _ctx.data.gimbal_world_yaw;
 
     _ctx.data.chassis_wz = chassis_yaw_radps;
 

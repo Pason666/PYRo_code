@@ -79,7 +79,6 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
 
     struct data_ctx_t
     {
-        float gimbal_world_yaw;
         float chassis_world_yaw;
         float target_yaw_imu_angle;
         float current_yaw_imu_angle;

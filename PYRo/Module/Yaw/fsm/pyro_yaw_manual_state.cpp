@@ -2,11 +2,6 @@
 
 namespace pyro
 {
-// float man_cyaw_rad;
-// float man_tyaw_rad = 0;
-// float man_cyaw_radps;
-// float man_tyaw_radps;
-// float man_wz;
 float test_target_yaw_rad;
 float test_current_yaw_rad;
 float test_yaw_torque;
@@ -48,25 +43,15 @@ void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
 {
     owner->_ctx.data.world_yaw_error = calculate_yaw_error(
         owner->_ctx.cmd->target_yaw_imu_angle,
-        owner->_ctx.data.gimbal_world_yaw, yaw_rotation_loops);
-    test_target_yaw_imu_angle = owner->_ctx.cmd->target_yaw_imu_angle;
-    // man_cyaw_rad   = owner->_ctx.data.world_yaw_error;
-    // man_tyaw_radps =
-    //     owner->_ctx.data.chassis_wz * 3 + owner->_ctx.data.out_yaw_radps;
-    // man_cyaw_radps = owner->_ctx.data.current_yaw_radps;
-    // man_wz = owner->_ctx.data.chassis_wz * 3;
+        owner->_ctx.cmd->current_yaw_imu_rad, yaw_rotation_loops);
 
-    test_current_yaw_rad = owner->_ctx.data.current_yaw_angle;
     owner->_ctx.data.out_yaw_radps =
         owner->_ctx.yaw_config.pid.yaw_pos_pid->calculate(
             0, owner->_ctx.data.world_yaw_error);
-    test_out_yaw_radps = owner->_ctx.data.out_yaw_radps;
     owner->_ctx.data.out_yaw_torque =
         owner->_ctx.yaw_config.pid.yaw_spd_pid->calculate(
             owner->_ctx.data.out_yaw_radps,
-            // + owner->_ctx.data.chassis_wz * 3,
             owner->_ctx.data.current_yaw_radps);
-    test_yaw_torque = owner->_ctx.data.out_yaw_torque;
 
     _send_motor_command(&owner->_ctx);
 }
