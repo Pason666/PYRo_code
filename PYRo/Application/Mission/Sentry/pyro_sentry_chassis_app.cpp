@@ -203,7 +203,7 @@ extern "C"
             floor(referee_data.shoot.initial_speed);
         uint8_t bullet_speed_dec =
             static_cast<uint8_t>(referee_data.shoot.initial_speed -
-                                 bullet_speed_int) *
+                                 static_cast<float>(bullet_speed_int)) *
             100;
         // uint16_t ammo_count =
         //     referee_data.allowance
@@ -216,11 +216,19 @@ extern "C"
             enemy_color = 0;
         else
             enemy_color = 1;
+        bool game_started = referee_data.game_status.game_progress == 4 ? true : false;
+        uint8_t rmul_center = referee_data.field_event.central_buff_point;
+
+
+
 
         can_tx_drv_t::clear(0x102);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
-        can_tx_drv_t::add_data(0x102, 1, enemy_color);
+        can_tx_drv_t::add_data(0x102, 8, enemy_color);
+        can_tx_drv_t::add_data(0x102,8,game_started);
+        can_tx_drv_t::add_data(0x102,8,rmul_center);
+
         // const auto ammo_count_high =
         //     static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
         // const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
@@ -232,7 +240,8 @@ extern "C"
     void mcu2nav_process()
     {
         mcu2nav_msg.data.hp = referee_data.game_robot_hp.robot_7_hp;
-        mcu2nav_msg.data.ammo = referee_data.allowance.projectile_allowance_17mm;
+        mcu2nav_msg.data.ammo =
+            referee_data.allowance.projectile_allowance_17mm;
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
                                sizeof(mcu2nav_msg)); // 添加CRC校验
         comm->write(mcu2nav_msg);

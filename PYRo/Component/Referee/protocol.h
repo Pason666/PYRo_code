@@ -120,7 +120,31 @@ struct game_robot_hp_t
 // 0x0101
 struct event_data_t
 {
-    uint32_t event_type;
+    // 补给区占领状态
+    uint32_t non_overlapping_supply_zone : 1; // bit 0: 己方与资源区不重叠的补给区占领状态，1为已占领
+    uint32_t overlapping_supply_zone     : 1; // bit 1: 己方与资源区重叠的补给区占领状态，1为已占领
+    uint32_t rmul_supply_zone            : 1; // bit 2: 己方补给区的占领状态，1为已占领(仅RMUL适用)
+
+    // 能量机关状态
+    uint32_t small_energy_mechanism      : 2; // bit 3-4: 己方小能量机关的激活状态 (0:未激活, 1:已激活, 2:正在激活)
+    uint32_t big_energy_mechanism        : 2; // bit 5-6: 己方大能量机关的激活状态 (0:未激活, 1:已激活, 2:正在激活)
+
+    // 高地占领状态
+    uint32_t central_high_ground         : 2; // bit 7-8: 己方中央高地的占领状态 (1:被己方占领, 2:被对方占领)
+    uint32_t trapezoidal_high_ground     : 2; // bit 9-10: 己方梯形高地的占领状态，1为已占领
+
+    // 飞镖击打状态
+    uint32_t dart_hit_time               : 9; // bit 11-19: 对方飞镖最后一次击中己方前哨站或基地的时间 (0-420)
+    uint32_t dart_hit_target             : 3; // bit 20-22: 对方飞镖最后一次击中具体目标 (1:前哨站, 2:基地固定, 3:基地随机固定, 4:基地随机移动, 5:基地末端移动)
+
+    // 增益点占领状态
+    uint32_t central_buff_point          : 2; // bit 23-24: 中心增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领, 3:双方占领，仅RMUL适用)
+    uint32_t fortress_buff_point         : 2; // bit 25-26: 己方堡垒增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领, 3:双方占领)
+    uint32_t outpost_buff_point          : 2; // bit 27-28: 己方前哨站增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领)
+    uint32_t base_buff_point             : 1; // bit 29: 己方基地增益点的占领状态，1为已占领
+
+    // 保留位
+    uint32_t reserved                    : 2; // bit 30-31: 保留位
 };
 
 // 0x0104

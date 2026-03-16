@@ -19,6 +19,8 @@ float test_aim_yaw;
 float test_origin_aim_pitch;
 
 float bullet_speed;
+uint8_t game_started;
+uint8_t center_state;
 bool autoaim = false;
 uint8_t enemy_color{};
 
@@ -40,18 +42,20 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.motor.pitch->set_rotate_range(-20, 20);
     gimbal_cfg.motor.pitch->set_torque_range(-10, 10);
 
-    gimbal_cfg.pitch_max_rad     = 0.25f; // 最高的时候
-    gimbal_cfg.pitch_min_rad     = -0.5f; // 最低的时候
-    gimbal_cfg.yaw_max_rad       = 0.70f;
-    gimbal_cfg.yaw_min_rad       = -0.70f;
+    gimbal_cfg.pitch_max_rad = 0.25f; // 最高的时候
+    gimbal_cfg.pitch_min_rad = -0.5f; // 最低的时候
+    gimbal_cfg.yaw_max_rad   = 0.70f;
+    gimbal_cfg.yaw_min_rad   = -0.70f;
 
-    gimbal_cfg.pid.pitch_pos_pid = new pid_t(10.0f, 0.0f, 0.0f, 0.5f, 8, 0, 100, 2);
+    gimbal_cfg.pid.pitch_pos_pid =
+        new pid_t(10.0f, 0.0f, 0.0f, 0.5f, 8, 0, 100, 2);
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(1, 0.0f, 0.0f, 0.5f, 6.0f);
 
-    gimbal_cfg.pid.yaw_pos_pid   = new pid_t(3.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);
-    gimbal_cfg.pid.yaw_spd_pid   = new pid_t(0.85f, 0.0f, 0.00001f, 0.2f, 10);
+    gimbal_cfg.pid.yaw_pos_pid =
+        new pid_t(3.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);
+    gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.00001f, 0.2f, 10);
 
-    gimbal_cfg.yaw_offset        = 2.05022361f;
+    gimbal_cfg.yaw_offset      = 2.05022361f;
 }
 
 extern "C"
@@ -65,10 +69,10 @@ extern "C"
 
         if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
         {
-            gimbal_cmd_ptr->mode             = gimbal_cmd_t::mode_t::PASSIVE;
+            gimbal_cmd_ptr->mode = gimbal_cmd_t::mode_t::PASSIVE;
             gimbal_cmd_ptr->target_delta_pitch_rad = 0.0f;
             gimbal_cmd_ptr->target_delta_yaw_rad   = 0.0f;
-            autoaim    = false;
+            autoaim                                = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
@@ -76,14 +80,14 @@ extern "C"
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
             gimbal_cmd_ptr->target_delta_pitch_rad = -p_ctrl->rc.ch_ry * 0.01f;
             // gimbal_cmd_ptr->test_yaw_radps = p_ctrl->rc.ch_rx * 2;
-            gimbal_cmd_ptr->target_delta_yaw_rad = p_ctrl->rc.ch_rx * 0.02f;
-            autoaim    = false;
+            gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
+            autoaim                                = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            autoaim    = true;
+            autoaim                     = true;
         }
     }
 
@@ -166,6 +170,8 @@ extern "C"
         uint8_t bullet_speed_dec = raw_data[1];
         bullet_speed             = bullet_speed_int + bullet_speed_dec / 100.0f;
         enemy_color              = raw_data[2] & 0x01;
+        game_started             = raw_data[3] & 0x01;
+        center_state             = raw_data[4] & 0x03;
     }
 
     void mcu2aim_process()
@@ -195,8 +201,8 @@ extern "C"
     {
         if (autoaim)
         {
-            gimbal_cmd_ptr->is_aiming = aim2mcu_msg.data.fire;
-            auto_fire = aim2mcu_msg.data.fire;
+            gimbal_cmd_ptr->is_aiming         = aim2mcu_msg.data.fire;
+            auto_fire                         = aim2mcu_msg.data.fire;
             gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
             gimbal_cmd_ptr->aim_imu_pitch_rad = aim2mcu_msg.data.shoot_pitch;
         }
