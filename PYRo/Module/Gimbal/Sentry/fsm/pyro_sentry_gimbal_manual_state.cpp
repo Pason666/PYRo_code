@@ -10,11 +10,6 @@ void gimbal_t::fsm_active_t::state_manual_t::enter(owner *owner)
 void gimbal_t::fsm_active_t::state_manual_t::execute(
     owner *owner)
 {
-    if (owner->_ctx.cmd->is_aiming == true)
-    {
-        this->request_switch(&owner->_active_state._tracking_state);
-    }
-
     owner->_ctx.data.target_yaw_rad = 0.0f;
     owner->_ctx.data.target_pitch_rad -= owner->_ctx.cmd->target_delta_pitch_rad;
     // owner->_ctx.data.target_yaw_rad -= owner->_ctx.cmd->target_delta_yaw_rad;
