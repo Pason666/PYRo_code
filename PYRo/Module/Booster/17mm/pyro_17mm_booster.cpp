@@ -19,7 +19,7 @@ namespace
 constexpr float PI_DIV_4                     = PI / 4.0f;
 
 // 速度与角度设定
-constexpr float SHOOT_BULLET_MUZZLE_VELOCITY = 25; // 枪口初速度
+constexpr float SHOOT_BULLET_MUZZLE_VELOCITY = 22.2; // 枪口初速度
 constexpr float FRICTION_WHEEL_RADIUS        = 0.03f;
 constexpr float SHOOT_FIRE_RADPS =
     (-SHOOT_BULLET_MUZZLE_VELOCITY / FRICTION_WHEEL_RADIUS); // 摩擦轮角速度

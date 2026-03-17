@@ -30,8 +30,8 @@ void booster_config(booster_cfg_t &cfg)
     cfg.motor.trigger =
         new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
 
-    cfg.pid.fric_pid[0]  = new pid_t(0.22f, 0.01f, 0.0f, 0.8f, 20.0f);
-    cfg.pid.fric_pid[1]  = new pid_t(0.22f, 0.01f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.fric_pid[0]  = new pid_t(1.2f, 0.01f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.fric_pid[1]  = new pid_t(1.2f, 0.01f, 0.0f, 0.8f, 20.0f);
     cfg.pid.trig_pos_pid = new pid_t(1000.0f, 0.0f, 0.0f, 100.0f, 1000.0f);
     cfg.pid.trig_spd_pid = new pid_t(0.05f, 0.02f, 0.0f, 5.0f, 20.0f);
 
@@ -48,7 +48,8 @@ extern "C"
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
+        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state ||
+            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
                 dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
@@ -61,11 +62,10 @@ extern "C"
             }
 
             // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
-            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
-                auto_fire)
+            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
             {
                 down_time++;
-                if (down_time > 200 || auto_fire)
+                if (down_time > 200)
                 {
                     booster_cmd_ptr->continue_shoot = true;
                     booster_cmd_ptr->single_shoot   = false;

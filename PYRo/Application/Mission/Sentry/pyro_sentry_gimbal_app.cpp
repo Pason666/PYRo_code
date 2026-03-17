@@ -52,7 +52,7 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(1, 0.0f, 0.0f, 0.5f, 6.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-        new pid_t(3.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);
+        new pid_t(15.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);
     gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.00001f, 0.2f, 10);
 
     gimbal_cfg.yaw_offset      = 2.05022361f;
@@ -60,6 +60,14 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 
 extern "C"
 {
+    void aim2mcu_process()
+    {
+        gimbal_cmd_ptr->is_aiming         = aim2mcu_msg.data.fire;
+        auto_fire                         = aim2mcu_msg.data.fire;
+        gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
+        gimbal_cmd_ptr->aim_imu_pitch_rad = aim2mcu_msg.data.shoot_pitch;
+    }
+
     void gimbal_rc2cmd(void const *rc_ctrl)
     {
         read_scope_lock lock(
@@ -79,15 +87,15 @@ extern "C"
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
             gimbal_cmd_ptr->target_delta_pitch_rad = -p_ctrl->rc.ch_ry * 0.01f;
-            // gimbal_cmd_ptr->test_yaw_radps = p_ctrl->rc.ch_rx * 2;
             gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
             autoaim                                = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::TRACKING;
             autoaim                     = true;
+            aim2mcu_process();
         }
     }
 
@@ -149,17 +157,6 @@ extern "C"
         can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(nav_enable));
         can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
-
-        // can_tx_drv_t::add_data(0x101, 8, 0);
-        // can_tx_drv_t::add_data(0x101, 8, 0);
-        // can_tx_drv_t::add_data(0x101, 8, 0);
-        // can_tx_drv_t::add_data(0x101, 8, 0);
-        // can_tx_drv_t::add_data(0x101, 1, 0);
-        // can_tx_drv_t::add_data(0x101, 1, 0);
-        // can_tx_drv_t::add_data(0x101, 6, static_cast<uint8_t>(scanning));
-        // can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(nav_enable));
-        // can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
-        //                               can_hub_t::which_can::can3));
     }
 
     void chassis2gimbal()
@@ -197,17 +194,6 @@ extern "C"
         comm->write(mcu2aim_msg);
     }
 
-    void aim2mcu_process()
-    {
-        if (autoaim)
-        {
-            gimbal_cmd_ptr->is_aiming         = aim2mcu_msg.data.fire;
-            auto_fire                         = aim2mcu_msg.data.fire;
-            gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
-            gimbal_cmd_ptr->aim_imu_pitch_rad = aim2mcu_msg.data.shoot_pitch;
-        }
-    }
-
     void sentry_gimbal_thread(void *argument)
     {
         while (true)
@@ -217,8 +203,6 @@ extern "C"
             gimbal_rc2cmd(rc_ctrl_ptr);
             chassis2gimbal();
             mcu2aim_process();
-
-            aim2mcu_process();
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
             vTaskDelay(1);
         }

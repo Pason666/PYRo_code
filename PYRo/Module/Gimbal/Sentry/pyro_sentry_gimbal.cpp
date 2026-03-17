@@ -1,6 +1,8 @@
 #include "pyro_sentry_gimbal.h"
 float yaw, pitch, roll;
-float test_target_pos, test_current_pos;
+
+
+float test_tpitch, test_cpitch, test_cyaw, test_tyaw;
 namespace pyro
 {
 
@@ -47,17 +49,6 @@ void gimbal_t::_update_feedback()
 
 void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 {
-    if (ctx->data.target_pitch_rad > ctx->gimbal_config.pitch_max_rad)
-        ctx->data.target_pitch_rad = ctx->gimbal_config.pitch_max_rad;
-    if (ctx->data.target_pitch_rad < ctx->gimbal_config.pitch_min_rad)
-        ctx->data.target_pitch_rad = ctx->gimbal_config.pitch_min_rad;
-    if (ctx->data.target_yaw_rad > ctx->gimbal_config.yaw_max_rad)
-        ctx->data.target_yaw_rad = ctx->gimbal_config.yaw_max_rad;
-    if (ctx->data.target_yaw_rad < ctx->gimbal_config.yaw_min_rad)
-        ctx->data.target_yaw_rad = ctx->gimbal_config.yaw_min_rad;
-
-
-    
     ins_drv_t *ins = ins_drv_t::get_instance();
     ins->get_rads_b(&yaw, &pitch, &roll);
 
@@ -65,7 +56,8 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
     ctx->data.target_pitch_radps =
         -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, pitch);
-            aim_pitch =ctx->cmd->aim_imu_pitch_rad;
+    test_tpitch = ctx->data.target_pitch_rad;
+    test_cpitch = pitch;
 
     // pitch轴速度环
     ctx->data.out_pitch_torque =
@@ -74,18 +66,16 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
         gravity_offset * cos(pitch); // 重力补偿
 
     // yaw轴位置环
-    ctx->data.target_yaw_radps =
-    ctx->gimbal_config.pid.yaw_pos_pid->calculate(
+    ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, yaw);
-
-        aim_yaw =ctx->cmd->aim_imu_yaw_rad;
+    test_tyaw = ctx->data.target_yaw_rad;
+    test_cyaw = yaw;
 
     // yaw轴速度环
     ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
         ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
 
     test_current_pos = yaw;
-    test_target_pos = ctx->data.target_yaw_rad;
 
     // ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
     //     ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
@@ -94,7 +84,7 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
 void gimbal_t::_send_motor_command(gimbal_context_t *ctx)
 {
     ctx->gimbal_config.motor.pitch->send_torque(ctx->data.out_pitch_torque);
-    // ctx->gimbal_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
+    ctx->gimbal_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
 }
 
 void gimbal_t::_fsm_execute()

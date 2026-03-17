@@ -20,6 +20,7 @@ struct gimbal_cmd_t final : cmd_base_t
     {
         MANUAL,
         SCANNING,
+        TRACKING
     };
 
     float target_delta_yaw_rad;
@@ -125,6 +126,9 @@ class gimbal_t final
 
         float out_pitch_torque{0.0f};
         float out_yaw_torque{0.0f};
+
+        float aim_imu_max_yaw{};
+        float aim_imu_min_yaw{};
     };
 
 
