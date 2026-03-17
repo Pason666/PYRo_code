@@ -177,6 +177,27 @@ struct robot_status_t
     uint8_t power_management_shooter_output : 1;
 };
 
+struct sentry_cmd_t
+{
+    // 复活相关指令
+    uint32_t confirm_resurrection       : 1;  // bit 0: 是否确认复活 (0: 确认不复活，1: 确认复活)
+    uint32_t confirm_buy_revive         : 1;  // bit 1: 是否确认兑换立即复活 (0: 不兑换，1: 确认消耗金币兑换)
+
+    // 兑换发弹量相关指令
+    uint32_t buy_projectile_allowance   : 11; // bit 2-12: 将要兑换的发弹量值（需单调递增）
+
+    // 远程请求相关指令
+    uint32_t remote_buy_projectile_times: 4;  // bit 13-16: 远程兑换发弹量的请求次数（需单调递增且每次仅能增加1）
+    uint32_t remote_buy_hp_times        : 4;  // bit 17-20: 远程兑换血量的请求次数（需单调递增且每次仅能增加1）
+
+    // 姿态与机制激活指令
+    uint32_t sentry_posture             : 2;  // bit 21-22: 修改当前姿态指令 (1: 进攻, 2: 防御, 3: 移动, 默认为3)
+    uint32_t confirm_activate_rune      : 1;  // bit 23: 是否确认使能量机关进入正在激活状态 (1为确认，默认为0)
+
+    // 保留位
+    uint32_t reserved                   : 8;  // bit 24-31: 保留位
+}; // 替代原 uint32_t sentry_cmd
+
 // 0x0202
 struct power_heat_data_t
 {

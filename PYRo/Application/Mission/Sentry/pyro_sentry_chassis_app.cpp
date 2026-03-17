@@ -32,6 +32,7 @@ dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 referee_data_t referee_data{};
 powermeter_drv_t *power_meter;
 powermeter_data power_data;
+__attribute__((section(".dma_heap"))) sentry_cmd_t sentry_cmd;
 
 __attribute__((section(".dma_heap"))) nav2mcu_msg_t nav2mcu_msg;
 __attribute__((section(".dma_heap"))) mcu2nav_msg_t mcu2nav_msg;
@@ -195,6 +196,7 @@ extern "C"
     void referee_process(const referee_drv_t *referee_drv)
     {
         referee_data = referee_drv->get_data();
+
     }
 
     void chassis2gimbal()
@@ -239,7 +241,7 @@ extern "C"
 
     void mcu2nav_process()
     {
-        mcu2nav_msg.data.hp = referee_data.game_robot_hp.robot_7_hp;
+        mcu2nav_msg.data.hp = referee_data.robot_status.current_hp;
         mcu2nav_msg.data.ammo =
             referee_data.allowance.projectile_allowance_17mm;
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
@@ -252,9 +254,11 @@ extern "C"
         while (true)
         {
             comm->read(nav2mcu_msg);
+            verify_crc16_check_sum(reinterpret_cast<uint8_t *>(&nav2mcu_msg),sizeof(nav2mcu_msg));
             imu2chassis();
-
+            sentry_cmd.sentry_posture = nav2mcu_msg.data.mode;
             referee_process(referee_drv_t::get_instance());
+            pyro::referee_drv_t::get_instance()->send_robot_interaction(0x8080,0x0120,&sentry_cmd,sizeof(sentry_cmd));
             mcu2nav_process();
 
             gimbal2chassis(rc_ctrl_ptr);

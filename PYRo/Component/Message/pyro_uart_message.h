@@ -27,7 +27,7 @@ typedef struct
     float wz;
     float imu;
     uint8_t stuck;
-    uint8_t mode;
+    uint8_t mode; // 1为进攻，2为防御，3为移动
 } __attribute__((packed)) nav2mcu_data_t;
 
 typedef struct
