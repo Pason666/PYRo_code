@@ -29,21 +29,23 @@ void gimbal_t::fsm_active_t::fsm_tracking_t::state_turning_fine_t::execute(
     }
 
     owner->_ctx.data.aim_imu_max_yaw =
-        yaw + (owner->_ctx.gimbal_config.yaw_max_rad -
-               owner->_ctx.data.current_yaw_rad);
+        wrap_pi(yaw + (owner->_ctx.gimbal_config.yaw_max_rad -
+                       owner->_ctx.data.current_yaw_rad));
     owner->_ctx.data.aim_imu_min_yaw =
-        yaw - (owner->_ctx.data.current_yaw_rad -
-               owner->_ctx.gimbal_config.yaw_min_rad);
+        wrap_pi(yaw + (owner->_ctx.gimbal_config.yaw_min_rad -
+                       owner->_ctx.data.current_yaw_rad));
 
-    aim_range_max = owner->_ctx.data.aim_imu_max_yaw;
-    aim_range_min = owner->_ctx.data.aim_imu_min_yaw;
+
+
+    aim_range_max                     = owner->_ctx.data.aim_imu_max_yaw;
+    aim_range_min                     = owner->_ctx.data.aim_imu_min_yaw;
 
     owner->_ctx.data.target_pitch_rad = owner->_ctx.cmd->aim_imu_pitch_rad;
     owner->_ctx.data.target_yaw_rad   = owner->_ctx.cmd->aim_imu_yaw_rad;
 
-    
-    aim_pitch   = owner->_ctx.cmd->aim_imu_pitch_rad;
-    aim_yaw = owner->_ctx.cmd->aim_imu_yaw_rad;
+
+    aim_pitch                         = owner->_ctx.cmd->aim_imu_pitch_rad;
+    aim_yaw                           = owner->_ctx.cmd->aim_imu_yaw_rad;
 
     if (owner->_ctx.data.target_pitch_rad >
         owner->_ctx.gimbal_config.pitch_max_rad)
@@ -54,18 +56,27 @@ void gimbal_t::fsm_active_t::fsm_tracking_t::state_turning_fine_t::execute(
         owner->_ctx.data.target_pitch_rad =
             owner->_ctx.gimbal_config.pitch_min_rad;
 
-    if (owner->_ctx.data.target_yaw_rad > owner->_ctx.data.aim_imu_max_yaw)
-        owner->_ctx.data.target_yaw_rad = owner->_ctx.data.aim_imu_max_yaw;
-    if (owner->_ctx.data.target_yaw_rad < owner->_ctx.data.aim_imu_min_yaw)
-        owner->_ctx.data.target_yaw_rad = owner->_ctx.data.aim_imu_min_yaw;
-
-    float yaw_error = owner->_ctx.cmd->aim_imu_yaw_rad - yaw;
-    while (yaw_error > PI)
-        yaw_error -= 2 * PI;
-    while (yaw_error < -PI)
-        yaw_error += 2 * PI;
-    owner->_ctx.data.target_yaw_rad += yaw_error;
-
+    if (owner->_ctx.data.aim_imu_max_yaw > owner->_ctx.data.aim_imu_min_yaw)
+    {
+        owner->_ctx.data.target_yaw_rad = loop_fp32_constrain(
+            owner->_ctx.data.target_yaw_rad, owner->_ctx.data.aim_imu_min_yaw,
+            owner->_ctx.data.aim_imu_max_yaw);
+    }
+    else
+    {
+        if (owner->_ctx.data.target_yaw_rad >
+                owner->_ctx.data.aim_imu_max_yaw &&
+            owner->_ctx.data.target_yaw_rad < owner->_ctx.data.aim_imu_min_yaw)
+        {
+            float dist_to_max = fabs(wrap_pi(owner->_ctx.data.target_yaw_rad -
+                                             owner->_ctx.data.aim_imu_max_yaw));
+            float dist_to_min = fabs(wrap_pi(owner->_ctx.data.target_yaw_rad -
+                                             owner->_ctx.data.aim_imu_min_yaw));
+            owner->_ctx.data.target_yaw_rad = dist_to_max < dist_to_min
+                                                ? owner->_ctx.data.aim_imu_max_yaw
+                                                : owner->_ctx.data.aim_imu_min_yaw;
+        }
+    }
     aim_yaw_aftercalc = owner->_ctx.data.target_yaw_rad;
 
     // owner->_ctx.data.target_yaw_rad = 0;

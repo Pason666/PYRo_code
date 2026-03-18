@@ -2,7 +2,8 @@
 float yaw, pitch, roll;
 
 
-float test_tpitch, test_cpitch, test_cyaw, test_tyaw;
+float test_tpitch, test_cpitch, test_cyaw, test_tyaw, test_cyaw_radps,
+    test_tyaw_radps, test_output;
 namespace pyro
 {
 
@@ -68,14 +69,15 @@ void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, yaw);
-    test_tyaw = ctx->data.target_yaw_rad;
-    test_cyaw = yaw;
+    test_tyaw                = ctx->data.target_yaw_rad;
+    test_cyaw                = yaw;
 
     // yaw轴速度环
     ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
         ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
-
-    test_current_pos = yaw;
+    test_cyaw_radps = ctx->data.current_yaw_radps;
+    test_tyaw_radps = ctx->data.target_yaw_radps;
+    test_output = ctx->data.out_yaw_torque;
 
     // ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
     //     ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);

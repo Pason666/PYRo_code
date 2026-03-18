@@ -20,6 +20,7 @@ struct booster_cmd_t : cmd_base_t
     uint16_t ammo_count{}; //剩余发弹量（裁判系统反馈）
     uint8_t power_heat{}; //当前热量（除以10 0~26）
     bool fire_licence{}; //发射许可，为false时拨弹盘绝对不允许转动
+    float target_fric_speed = 23.0f;
     booster_cmd_t()
         : is_fric_on(false), single_shoot(false), continue_shoot(false)
     {
@@ -38,6 +39,7 @@ struct booster_cfg_t
         pid_t *trig_pos_pid{nullptr};
         pid_t *trig_spd_pid{nullptr};
         pid_t *fric_pid[2]{nullptr};
+        pid_t *bullet_speed_pid{nullptr};
     };
 
     motor_cfg_t motor;
@@ -63,6 +65,11 @@ class shoot_17mm_control_t final
   private:
     shoot_17mm_control_t();
     ~shoot_17mm_control_t() override = default;
+
+    // --- 参数 ---
+    float _filtered_speed_error = 0.0f;  // 滤波后的累积误差
+    bool _first_ball_received = false;    // 标记是否接收到第一发弹
+    static constexpr float FILTER_ALPHA = 0.12f; // 滤波系数 (0.05~0.2之间调试)
 
     // --- 基类接口 ---
     status_t _init() override;

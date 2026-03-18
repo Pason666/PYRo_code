@@ -25,7 +25,7 @@ constexpr float SHOOT_FIRE_RADPS =
     (-SHOOT_BULLET_MUZZLE_VELOCITY / FRICTION_WHEEL_RADIUS); // 摩擦轮角速度
 
 // constexpr float TRIGGER_UNJAM_RADPS      = 6.0f;   // 解堵速度
-constexpr float TRIGGER_CONTINUOUS_RADPS = 20; // 连续发射速度（拨弹盘速度）
+constexpr float TRIGGER_CONTINUOUS_RADPS = 10; // 连续发射速度（拨弹盘速度）
 
 // 堵转判定
 // constexpr float TRIGGER_BLOCK_RAD        = 0.2f; // 堵转判定弧度阈值
@@ -222,8 +222,6 @@ void shoot_17mm_control_t::state_ready_fric_t::execute(owner *ctx)
         return;
     }
 
-    test_fric1_radps  = ctx->_ctx.data.current_fric_radps[0];
-    test_fric2_radps  = ctx->_ctx.data.current_fric_radps[1];
     test_target_radps = SHOOT_FIRE_RADPS;
 
     // 检查摩擦轮速度是否达标 (误差小于 1.0 rad/s)
@@ -379,6 +377,8 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
         return;
     }
     // 移除堵弹检测逻辑
+    test_fric1_radps  = ctx->_ctx.data.current_fric_radps[0];
+    test_fric2_radps  = ctx->_ctx.data.current_fric_radps[1];
 }
 
 void shoot_17mm_control_t::state_continue_bullet_t::exit(owner *ctx)
