@@ -48,6 +48,7 @@ void yaw_t::_update_feedback()
     _ctx.data.current_yaw_angle =
         wrap_pi(_ctx.yaw_config.motor.yaw->get_current_position() -
                 _ctx.yaw_config.yaw_offset);
+    a1 = _ctx.data.current_yaw_angle;
 
     // 这里需要获取底盘imu数据减去大yaw的机械角度得到yaw轴的imu角度
     ins->get_angles_n(&yaw, &pitch, &roll);
@@ -77,6 +78,7 @@ void yaw_t::_yaw_control(yaw_ctx_t *ctx)
 void yaw_t::_send_motor_command(yaw_ctx_t *ctx)
 {
     ctx->yaw_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
+    
     // ctx->yaw_config.motor.yaw->send_torque(0);
 }
 

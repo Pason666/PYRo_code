@@ -48,8 +48,8 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.yaw_min_rad   = -0.70f;
 
     gimbal_cfg.pid.pitch_pos_pid =
-        new pid_t(60.0f, 0.001f, 0.0f, 0.5f, 20, 0, 100, 2);
-    gimbal_cfg.pid.pitch_spd_pid = new pid_t(1, 0.0f, 0.0f, 0.5f, 6.0f);
+        new pid_t(50.0f, 0.001f, 0.5f, 0.5f, 15, 0, 100, 2);
+    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.6f, 0.0f, 0.0f, 0.5f, 6.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
         new pid_t(50.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);

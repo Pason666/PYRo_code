@@ -73,7 +73,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
 
     rud_cfg.pid.rud_pos_pid[0] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
     rud_cfg.pid.rud_pos_pid[1] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[2] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[2] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
     rud_cfg.pid.rud_pos_pid[3] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
@@ -82,7 +82,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
     rud_cfg.pid.follow_yaw_pid =
-        new pid_t(6.0f, 0.0f, 0.0004f, 0, 6.0f, 0, 10, 11);
+        new pid_t(15.0f, 0.0f, 1.8, 0, 100.0f);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -127,12 +127,10 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-10, 10);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(1200, 30, 0.0005, 1, 8);
-    yaw_cfg.pid.yaw_spd_pid = new pid_t(0.42, 0, 0.008, 2, 5);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(25, 0, 1.6, 1, 20);
+    yaw_cfg.pid.yaw_spd_pid = new pid_t(1.5, 0, 0, 2, 5);
 
-    // Nav_PID_spd=PID_Factory_Function(20,30,0.01,1000,1000,0,0.2,20);
-    // Nav_PID_pos=PID_Factory_Function(0.52,0,0.008,1000,1000,0,1,20);
-    yaw_cfg.yaw_offset      = 3.398682268f;
+    yaw_cfg.yaw_offset      = 0.509001732f;
 }
 
 extern "C"
@@ -277,7 +275,7 @@ extern "C"
             gimbal2chassis(rc_ctrl_ptr);
             chassis2gimbal();
 
-            // rud_chassis_ptr->set_command(*rud_cmd_ptr);
+            rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
 
             power_meter->get_data(power_data);
