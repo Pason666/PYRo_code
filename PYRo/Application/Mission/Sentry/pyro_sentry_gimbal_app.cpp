@@ -142,7 +142,7 @@ extern "C"
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
-            follow_yaw = true;
+            follow_yaw = false;
             active     = true;
             scanning   = false;
             nav_enable = true;
