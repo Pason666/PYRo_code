@@ -94,8 +94,8 @@ extern "C"
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::TRACKING;
-            autoaim                     = true;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
+            autoaim                     = false;
             aim2mcu_process();
         }
     }
@@ -145,7 +145,7 @@ extern "C"
             follow_yaw = true;
             active     = true;
             scanning   = false;
-            nav_enable = false;
+            nav_enable = true;
         }
 
         can_tx_drv_t::add_data(0x101, 8, vx);

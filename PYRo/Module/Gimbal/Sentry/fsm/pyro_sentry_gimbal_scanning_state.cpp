@@ -77,8 +77,6 @@ void gimbal_t::fsm_active_t::state_scanning_t::execute(owner *owner)
     }
 
     _gimbal_control(&owner->_ctx);
-
-    yaw_ctorque = owner->_ctx.data.out_yaw_torque;
     _send_motor_command(&owner->_ctx);
 }
 

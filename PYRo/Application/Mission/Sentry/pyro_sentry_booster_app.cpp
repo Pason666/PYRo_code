@@ -41,7 +41,7 @@ void booster_config(booster_cfg_t &cfg)
     cfg.pid.trig_spd_pid     = new pid_t(100.0f, 0.04f, 0.0f, 5.0f, 20.0f);
     cfg.pid.bullet_speed_pid = new pid_t(0.01f, 0.0f, 0.00f, 5.00f, 10.0f);
 
-    cfg.target_fric_speed    = 23;
+    cfg.target_fric_speed    = 230;
     // cfg.pid.trig_pos_pid = new pid_t(8.0f, 0.0f, 0.00f, 10, 100.0f);
     // cfg.pid.trig_spd_pid = new pid_t(0.01f, 0.02f, 0.00f, 5.00f, 10.0f);
 }
@@ -113,6 +113,7 @@ extern "C"
             raw_data[0] + raw_data[1] / 100.0f;
         booster_cmd_ptr->ammo_count =
             static_cast<int16_t>(raw_data[2] << 8 | raw_data[3]);
+        booster_cmd_ptr->power_heat = raw_data[5];
     }
 
     void speed_control(void)
@@ -155,17 +156,19 @@ extern "C"
                 // --- D. PID 计算速度增量 ---
                 // 逻辑保持不变：将 pid_input 视为误差，期望将其控制到 0
                 float speed_increment =
-                    booster_cfg_ptr->pid.bullet_speed_pid->calculate(0.0f, pid_input);
+                    booster_cfg_ptr->pid.bullet_speed_pid->calculate(0.0f,
+                                                                     pid_input);
 
                 // --- E. 执行与限幅 ---
                 booster_cmd_ptr->target_fric_speed += speed_increment;
 
-                constexpr float MAX_FRIC1_MPS = 25.0f;
-                constexpr float MIN_FRIC1_MPS = 22.0f;
+                constexpr float MAX_FRIC1_MPS = 730.0f;
+                constexpr float MIN_FRIC1_MPS = 710.0f;
 
                 // 使用 std::clamp (C++17) 更简洁，若不支持则换回 if-else
-                booster_cmd_ptr->target_fric_speed     = std::clamp(
-                    booster_cmd_ptr->target_fric_speed, MIN_FRIC1_MPS, MAX_FRIC1_MPS);
+                booster_cmd_ptr->target_fric_speed =
+                    std::clamp(booster_cmd_ptr->target_fric_speed,
+                               MIN_FRIC1_MPS, MAX_FRIC1_MPS);
             }
         }
     }
@@ -183,6 +186,7 @@ extern "C"
 
     status_t sentry_booster_init(void *argument)
     {
+        can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x102);
         booster_cmd_ptr = new booster_cmd_t();
         booster_cfg_ptr = new booster_cfg_t();
 

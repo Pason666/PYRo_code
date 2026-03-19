@@ -20,6 +20,7 @@ using namespace pyro;
 
 float test_imu;
 float test_buffer_energy;
+float heat;
 
 rud_chassis_t *rud_chassis_ptr             = nullptr;
 yaw_t *yaw_ptr                             = nullptr;
@@ -151,7 +152,7 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
         yaw_cmd_ptr->nav_enable =
-            static_cast<bool>(static_cast<uint8_t>(raw_data[5]));
+            static_cast<bool>(raw_data[5]);
         rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
         if (yaw_cmd_ptr->nav_enable == false)
         {
@@ -172,8 +173,8 @@ extern "C"
         {
             rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
             rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
-            rud_cmd_ptr->wz                   = 0;
-            yaw_cmd_ptr->target_yaw_imu_angle = 0;
+            rud_cmd_ptr->wz                   = 2;
+            yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.wz;
         }
 
         yaw_cmd_ptr->scanning =
@@ -220,7 +221,8 @@ extern "C"
             enemy_color = 1;
         bool game_started = referee_data.game_status.game_progress == 4 ? true : false;
         uint8_t rmul_center = referee_data.field_event.central_buff_point;
-
+        uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat / 10;
+        heat = power_heat;
 
 
 
@@ -230,6 +232,14 @@ extern "C"
         can_tx_drv_t::add_data(0x102, 8, enemy_color);
         can_tx_drv_t::add_data(0x102,8,game_started);
         can_tx_drv_t::add_data(0x102,8,rmul_center);
+        can_tx_drv_t::add_data(0x102, 8, power_heat);
+
+        can_tx_drv_t::send(0x102, can_hub_t::get_instance()->hub_get_can_obj(
+                                      can_hub_t::which_can::can3));
+
+
+
+
 
         // const auto ammo_count_high =
         //     static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
@@ -244,6 +254,9 @@ extern "C"
         mcu2nav_msg.data.hp = referee_data.robot_status.current_hp;
         mcu2nav_msg.data.ammo =
             referee_data.allowance.projectile_allowance_17mm;
+        mcu2nav_msg.data.game_state = referee_data.game_status.game_progress;
+        mcu2nav_msg.data.controlling_status = referee_data.field_event.central_buff_point;
+
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
                                sizeof(mcu2nav_msg)); // 添加CRC校验
         comm->write(mcu2nav_msg);
@@ -258,7 +271,7 @@ extern "C"
             imu2chassis();
             sentry_cmd.sentry_posture = nav2mcu_msg.data.mode;
             referee_process(referee_drv_t::get_instance());
-            pyro::referee_drv_t::get_instance()->send_robot_interaction(0x8080,0x0120,&sentry_cmd,sizeof(sentry_cmd));
+            referee_drv_t::get_instance()->send_robot_interaction(0x8080,0x0120,&sentry_cmd,sizeof(sentry_cmd));
             mcu2nav_process();
 
             gimbal2chassis(rc_ctrl_ptr);

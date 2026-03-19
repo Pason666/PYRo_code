@@ -62,6 +62,8 @@ typedef struct
 {
     uint16_t hp;
     uint16_t ammo;
+    uint8_t game_state;
+    uint8_t controlling_status;
 } __attribute__((packed)) mcu2nav_data_t;
 
 typedef struct
