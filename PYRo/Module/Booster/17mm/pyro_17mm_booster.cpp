@@ -154,7 +154,7 @@ void shoot_17mm_control_t::_trig_control(shoot_17mm_control_t *ctx)
 void shoot_17mm_control_t::_fire_check(booster_ctx_t *ctx)
 {
     gheat = ctx->cmd->power_heat;
-    if (ctx->cmd->power_heat <= 18 && ctx->cmd->ammo_count > 0)
+    if (ctx->cmd->power_heat <= 18)
         ctx->cmd->fire_licence = true;
     else
         ctx->cmd->fire_licence = false;

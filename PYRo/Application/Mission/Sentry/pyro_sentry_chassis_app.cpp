@@ -132,7 +132,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
 
     // Nav_PID_spd=PID_Factory_Function(20,30,0.01,1000,1000,0,0.2,20);
     // Nav_PID_pos=PID_Factory_Function(0.52,0,0.008,1000,1000,0,1,20);
-    yaw_cfg.yaw_offset      = 0.257089615f;
+    yaw_cfg.yaw_offset      = 3.398682268f;
 }
 
 extern "C"
@@ -277,7 +277,7 @@ extern "C"
             gimbal2chassis(rc_ctrl_ptr);
             chassis2gimbal();
 
-            rud_chassis_ptr->set_command(*rud_cmd_ptr);
+            // rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
 
             power_meter->get_data(power_data);

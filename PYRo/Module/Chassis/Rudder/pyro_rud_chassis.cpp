@@ -99,6 +99,15 @@ void rud_chassis_t::_update_feedback()
     _ctx.data.current_states.modules[rudder_kin_t::BR].speed =
         _ctx.rud_config.motor.wheel[3]->get_current_rotate() *
         dji_m3508_motor_drv_t::reciprocal_reduction_ratio * RUD_RADIUS;
+
+    // 3. 更新 cap_tx 数据
+    _ctx.supercap_cmd.power_referee     = 0;
+    _ctx.supercap_cmd.use_cap           = 1;
+    _ctx.supercap_cmd.kill_chassis_user = 0;
+    _ctx.supercap_cmd.speed_up_user_now = 0;
+
+    // 4. 更新 cap_rx 数据
+    _ctx.cap_feedback = supercap_drv_t::get_instance()->get_feedback();
 }
 
 void rud_chassis_t::_kinematics_solve()
@@ -173,28 +182,33 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
         motor_data.at(i).power_predict = power_controller.motor_power_predict(
             i, motor_data.at(i).torque_cmd, motor_data.at(i).gyro);
     }
+    float power_limit = referee_drv_t::get_instance()
+                            ->get_data()
+                            .robot_status.chassis_power_limit;
 
-    const float power_limit = referee_drv_t::get_instance()
-                                  ->get_data()
-                                  .robot_status.chassis_power_limit;
-    test_power_limit = referee_drv_t::get_instance()
-                           ->get_data()
-                           .robot_status.chassis_power_limit;
+    if (ctx->cap_feedback.vot_cap >= 1800)
+    {
+        // 平均分配
+        power_controller.calculate_restricted_torques(
+            motor_data.data(), POWERCONTROL_NUM, power_limit + 100);
+    }
+    else
+    {
+        // 平均分配
+        power_controller.calculate_restricted_torques(
+        motor_data.data(), POWERCONTROL_NUM, power_limit);
+    }
 
     // 不平均分配
     // float custom_ratios[POWERCONTROL_NUM] = {0.1f, 0.1f, 0.1f, 0.1f};
     // power_controller.calculate_restricted_torques(
     //     motor_data.data(), POWERCONTROL_NUM, POWER_LIMIT, custom_ratios);
 
-    // 平均分配
-    power_controller.calculate_restricted_torques(
-        motor_data.data(), POWERCONTROL_NUM, power_limit);
     for (int i = 0; i < POWERCONTROL_NUM; i++)
     {
         ctx->data.out_wheel_torque[i] = motor_data.at(i).restricted_torque;
         predict[i]                    = motor_data.at(i).power_predict;
     }
-
 
 #endif
 }
@@ -217,6 +231,74 @@ void rud_chassis_t::_send_motor_command(rud_ctx_t *ctx)
     }
 }
 
+void rud_chassis_t::_send_supercap_command() const
+{
+    supercap_drv_t::get_instance()->send_cmd(_ctx.supercap_cmd); // NOLINT
+}
+
+void rud_chassis_t::_decide_cap()
+{
+    static bool _last_status = false;
+    static uint32_t _timer   = 0;
+    static bool _delay_done  = false;
+
+    bool current_status      = referee_drv_t::get_instance()
+                              ->get_data()
+                              .robot_status.power_management_chassis_output;
+
+    if (current_status)
+    {
+        // --- 情况 A：Chassis 有输出 ---
+        if (!_last_status)
+        {
+            // 刚切到有输出状态：重置计时器和延迟标志
+            _timer      = 0;
+            _delay_done = false;
+        }
+
+        if (!_delay_done)
+        {
+            // 1. 处理 1000 tick 的初始延迟
+            if (++_timer >= 1000)
+            {
+                _delay_done               = true;
+                _timer                    = 0; // 重置用于后续的 10 tick 周期
+
+                // 达到 1000 tick 时立即发送第一次开启指令
+                _ctx.supercap_cmd.use_cap = 1;
+                _send_supercap_command();
+            }
+        }
+        else
+        {
+            // 2. 延迟结束后，以 10 tick 为周期发送
+            if (++_timer >= 10)
+            {
+                _timer                    = 0;
+                _ctx.supercap_cmd.use_cap = 1;
+                _send_supercap_command();
+            }
+        }
+    }
+    else
+    {
+        // --- 情况 B：Chassis 无输出 ---
+        if (_last_status)
+        {
+            // 刚切换到无输出状态：发送一次 use_cap = 0
+            _ctx.supercap_cmd.use_cap = 0;
+            _send_supercap_command();
+
+            // 重置状态位，防止重复发送
+            _delay_done = false;
+            _timer      = 0;
+        }
+    }
+
+    // 更新旧状态
+    _last_status = current_status;
+}
+
 void rud_chassis_t::_fsm_execute()
 {
     _ctx.cmd = &_current_cmd;
@@ -225,6 +307,8 @@ void rud_chassis_t::_fsm_execute()
         _main_fsm.change_state(&_state_passive);
     else if (cmd_base_t::mode_t::ACTIVE == _ctx.cmd->mode)
         _main_fsm.change_state(&_state_active);
+
+    _decide_cap();
 
     _main_fsm.execute(this);
 }

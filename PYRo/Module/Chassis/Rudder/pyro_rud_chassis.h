@@ -11,6 +11,7 @@
 #include "pyro_powermeter.h"
 #include "pyro_power_control_drv.h"
 #include "pyro_referee.h"
+#include "pyro_supercap_drv.h"
 
 namespace pyro
 {
@@ -76,6 +77,8 @@ class rud_chassis_t final
     void _kinematics_solve();
     static void _chassis_control(rud_ctx_t *ctx);
     static void _send_motor_command(rud_ctx_t *ctx);
+    void _send_supercap_command() const;
+    void _decide_cap();
 
     rudder_kin_t *_kinematics{nullptr};
 
@@ -114,6 +117,8 @@ class rud_chassis_t final
         data_ctx_t data;
         rud_cmd_t *cmd;
         drive_mode_t drive_mode;
+        supercap_drv_t::chassis_cmd_t supercap_cmd;
+        supercap_drv_t::cap_feedback_t cap_feedback;
     };
 
     struct debug_ctx_t
