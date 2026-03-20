@@ -161,6 +161,7 @@ extern "C"
                 127.0f;
             rud_cmd_ptr->wz =
                 static_cast<float>(static_cast<int8_t>(raw_data[2]));
+            // rud_cmd_ptr->wz = 5;
 
             yaw_cmd_ptr->target_yaw_imu_angle -=
                 static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
