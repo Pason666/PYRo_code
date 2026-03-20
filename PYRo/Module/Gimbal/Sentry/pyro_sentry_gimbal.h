@@ -90,7 +90,8 @@ class gimbal_t final
     void _fsm_execute() override;
 
     // --- 私有辅助方法 ---
-    static void _gimbal_control(gimbal_context_t *ctx);
+    static void _gimbal_mec_control(gimbal_context_t *ctx);
+    static void _gimbal_imu_control(gimbal_context_t *ctx);
     static void _send_motor_command(gimbal_context_t *ctx);
 
     // --- 成员变量 ---

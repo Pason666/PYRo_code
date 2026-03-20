@@ -15,8 +15,8 @@ void gimbal_t::fsm_active_t::on_enter(owner *owner)
 
 void gimbal_t::fsm_active_t::on_execute(owner *owner)
 {
-    if (owner->_ctx.cmd->is_aiming == true)
-        this->change_state(&_tracking_state);
+    // if (owner->_ctx.cmd->is_aiming == true)
+    //     this->change_state(&_tracking_state);
     if (gimbal_cmd_t::gimbal_mode_t::SCANNING == owner->_ctx.cmd->gimbal_mode)
     {
         this->change_state(&_scanning_state);
@@ -26,10 +26,10 @@ void gimbal_t::fsm_active_t::on_execute(owner *owner)
     {
         this->change_state(&_manual_state);
     }
-    else if (gimbal_cmd_t::gimbal_mode_t::TRACKING == owner->_ctx.cmd->gimbal_mode)
-    {
-        this->change_state(&_tracking_state);
-    }
+    // else if (gimbal_cmd_t::gimbal_mode_t::TRACKING == owner->_ctx.cmd->gimbal_mode)
+    // {
+    //     this->change_state(&_tracking_state);
+    // }
 }
 
 void gimbal_t::fsm_active_t::on_exit(owner *owner)

@@ -53,8 +53,7 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 
     gimbal_cfg.pid.yaw_pos_pid =
         new pid_t(50.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);
-    gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.00001f, 0.2f, 6
-        );
+    gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.00001f, 0.2f, 6);
 
     gimbal_cfg.yaw_offset      = 2.05022361f;
 }
@@ -94,8 +93,8 @@ extern "C"
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            autoaim                     = false;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
+            autoaim                     = true;
             aim2mcu_process();
         }
     }

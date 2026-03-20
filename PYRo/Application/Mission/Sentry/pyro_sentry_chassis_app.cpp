@@ -172,7 +172,7 @@ extern "C"
         {
             rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
             rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
-            rud_cmd_ptr->wz                   = 5;
+            rud_cmd_ptr->wz                   = 1;
             yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.wz;
         }
 
@@ -213,10 +213,10 @@ extern "C"
         // uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat
         // / 10;
         uint8_t enemy_color;
-        if (referee_data.robot_status.robot_id == 7)
-            enemy_color = 0;
-        else
+        if (referee_data.robot_status.robot_id > 100)
             enemy_color = 1;
+        else
+            enemy_color = 0;
         bool game_started =
             referee_data.game_status.game_progress == 4 ? true : false;
         uint8_t rmul_center = referee_data.field_event.central_buff_point;

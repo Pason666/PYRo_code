@@ -48,7 +48,28 @@ void gimbal_t::_update_feedback()
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
 }
 
-void gimbal_t::_gimbal_control(gimbal_context_t *ctx)
+void gimbal_t::_gimbal_mec_control(gimbal_context_t *ctx)
+{
+    ctx->data.target_pitch_radps =
+        -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
+            ctx->data.target_pitch_rad, ctx->data.current_pitch_rad);
+
+    // pitch轴速度环
+    ctx->data.out_pitch_torque =
+        ctx->gimbal_config.pid.pitch_spd_pid->calculate(
+            ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) -
+        gravity_offset * cos(pitch); // 重力补偿
+
+    // yaw轴位置环
+    ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
+        ctx->data.target_yaw_rad, ctx->data.current_yaw_rad);
+
+    // yaw轴速度环
+    ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
+        ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+}
+
+void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
 {
     ins_drv_t *ins = ins_drv_t::get_instance();
     ins->get_rads_b(&yaw, &pitch, &roll);
