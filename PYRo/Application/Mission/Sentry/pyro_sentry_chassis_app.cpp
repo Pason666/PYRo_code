@@ -66,10 +66,10 @@ void chassis_config(rud_cfg_t &rud_cfg)
         new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4,
                                   can_hub_t::can1); // FR Wheel
 
-    rud_cfg.pid.wheel_pid[0]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[1]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[2]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[3]   = new pid_t(50.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[0]   = new pid_t(30.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[1]   = new pid_t(30.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[2]   = new pid_t(30.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[3]   = new pid_t(30.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
     rud_cfg.pid.rud_pos_pid[0] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
     rud_cfg.pid.rud_pos_pid[1] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
@@ -149,8 +149,8 @@ extern "C"
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
         yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[5]);
-        // rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
-        rud_cmd_ptr->follow_yaw = false;
+        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
+        // rud_cmd_ptr->follow_yaw = false;
         if (yaw_cmd_ptr->nav_enable == false)
         {
             rud_cmd_ptr->vx =
@@ -162,8 +162,6 @@ extern "C"
             rud_cmd_ptr->wz =
                 static_cast<float>(static_cast<int8_t>(raw_data[2]));
 
-            // rud_cmd_ptr->wz = 2;
-
             yaw_cmd_ptr->target_yaw_imu_angle -=
                 static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
                 0.005f;
@@ -173,7 +171,7 @@ extern "C"
         {
             rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
             rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
-            rud_cmd_ptr->wz                   = 2;
+            rud_cmd_ptr->wz                   = 5;
             yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.wz;
         }
 

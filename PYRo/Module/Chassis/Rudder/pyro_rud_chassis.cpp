@@ -139,7 +139,6 @@ void rud_chassis_t::_kinematics_solve()
                 vx * cosf(_ctx.cmd->yaw_error) - vy * sinf(_ctx.cmd->yaw_error);
             _ctx.cmd->vy =
                 vx * sinf(_ctx.cmd->yaw_error) + vy * cosf(_ctx.cmd->yaw_error);
-            _ctx.cmd->wz = 2.0f;
         }
     }
     _ctx.data.target_states = _kinematics->solve(
