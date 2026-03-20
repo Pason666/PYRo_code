@@ -81,8 +81,7 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid =
-        new pid_t(15.0f, 0.0f, 1.8, 0, 100.0f);
+    rud_cfg.pid.follow_yaw_pid = new pid_t(15.0f, 0.0f, 1.8, 0, 100.0f);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -149,9 +148,9 @@ extern "C"
             rud_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
             yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         }
-        yaw_cmd_ptr->nav_enable =
-            static_cast<bool>(raw_data[5]);
-        rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
+        yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[5]);
+        // rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
+        rud_cmd_ptr->follow_yaw = false;
         if (yaw_cmd_ptr->nav_enable == false)
         {
             rud_cmd_ptr->vx =
@@ -162,6 +161,9 @@ extern "C"
                 127.0f;
             rud_cmd_ptr->wz =
                 static_cast<float>(static_cast<int8_t>(raw_data[2]));
+
+            // rud_cmd_ptr->wz = 2;
+
             yaw_cmd_ptr->target_yaw_imu_angle -=
                 static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
                 0.005f;
@@ -195,7 +197,6 @@ extern "C"
     void referee_process(const referee_drv_t *referee_drv)
     {
         referee_data = referee_drv->get_data();
-
     }
 
     void chassis2gimbal()
@@ -217,9 +218,11 @@ extern "C"
             enemy_color = 0;
         else
             enemy_color = 1;
-        bool game_started = referee_data.game_status.game_progress == 4 ? true : false;
+        bool game_started =
+            referee_data.game_status.game_progress == 4 ? true : false;
         uint8_t rmul_center = referee_data.field_event.central_buff_point;
-        uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat / 10;
+        uint8_t power_heat =
+            referee_data.power_heat.shooter_17mm_barrel_heat / 10;
         heat = power_heat;
 
 
@@ -228,8 +231,8 @@ extern "C"
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
         can_tx_drv_t::add_data(0x102, 8, enemy_color);
-        can_tx_drv_t::add_data(0x102,8,game_started);
-        can_tx_drv_t::add_data(0x102,8,rmul_center);
+        can_tx_drv_t::add_data(0x102, 8, game_started);
+        can_tx_drv_t::add_data(0x102, 8, rmul_center);
         can_tx_drv_t::add_data(0x102, 8, power_heat);
 
         can_tx_drv_t::send(0x102, can_hub_t::get_instance()->hub_get_can_obj(
@@ -253,7 +256,8 @@ extern "C"
         mcu2nav_msg.data.ammo =
             referee_data.allowance.projectile_allowance_17mm;
         mcu2nav_msg.data.game_state = referee_data.game_status.game_progress;
-        mcu2nav_msg.data.controlling_status = referee_data.field_event.central_buff_point;
+        mcu2nav_msg.data.controlling_status =
+            referee_data.field_event.central_buff_point;
 
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
                                sizeof(mcu2nav_msg)); // 添加CRC校验
@@ -265,11 +269,13 @@ extern "C"
         while (true)
         {
             comm->read(nav2mcu_msg);
-            verify_crc16_check_sum(reinterpret_cast<uint8_t *>(&nav2mcu_msg),sizeof(nav2mcu_msg));
+            verify_crc16_check_sum(reinterpret_cast<uint8_t *>(&nav2mcu_msg),
+                                   sizeof(nav2mcu_msg));
             imu2chassis();
             sentry_cmd.sentry_posture = nav2mcu_msg.data.mode;
             referee_process(referee_drv_t::get_instance());
-            referee_drv_t::get_instance()->send_robot_interaction(0x8080,0x0120,&sentry_cmd,sizeof(sentry_cmd));
+            referee_drv_t::get_instance()->send_robot_interaction(
+                0x8080, 0x0120, &sentry_cmd, sizeof(sentry_cmd));
             mcu2nav_process();
 
             gimbal2chassis(rc_ctrl_ptr);
