@@ -102,6 +102,11 @@ void rud_chassis_t::_update_feedback()
 
     // 3. 更新 cap_tx 数据
     _ctx.supercap_cmd.power_referee     = 0;
+    _ctx.supercap_cmd.power_limit_referee =
+        referee_drv_t::get_instance()->get_data().robot_status.chassis_power_limit;
+    _ctx.supercap_cmd.power_buffer_limit_referee = 60.0f;
+    _ctx.supercap_cmd.power_buffer_referee =
+        referee_drv_t::get_instance()->get_data().power_heat.buffer_energy;
     _ctx.supercap_cmd.use_cap           = 1;
     _ctx.supercap_cmd.kill_chassis_user = 0;
     _ctx.supercap_cmd.speed_up_user_now = 0;

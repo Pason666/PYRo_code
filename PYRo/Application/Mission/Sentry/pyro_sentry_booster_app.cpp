@@ -122,7 +122,7 @@ extern "C"
         if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data))
         {
             float current_speed = raw_data[0] + raw_data[1] / 100.0f;
-            if (current_speed < 1.0)
+            if (current_speed < 1.0f)
             {
                 current_speed = booster_cfg_ptr->target_fric_speed;
             }

@@ -42,8 +42,8 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.motor.pitch->set_rotate_range(-20, 20);
     gimbal_cfg.motor.pitch->set_torque_range(-10, 10);
 
-    gimbal_cfg.pitch_max_rad = 0.25f; // 最高的时候
-    gimbal_cfg.pitch_min_rad = -0.5f; // 最低的时候
+    gimbal_cfg.pitch_max_rad = 0.43f; // 最高的时候
+    gimbal_cfg.pitch_min_rad = 0.18f; // 最低的时候
     gimbal_cfg.yaw_max_rad   = 0.70f;
     gimbal_cfg.yaw_min_rad   = -0.70f;
 
@@ -86,15 +86,15 @@ extern "C"
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            gimbal_cmd_ptr->target_delta_pitch_rad = -p_ctrl->rc.ch_ry * 0.01f;
+            gimbal_cmd_ptr->target_delta_pitch_rad = p_ctrl->rc.ch_ry * 0.01f;
             gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
             autoaim                                = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
-            autoaim                     = true;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
+            autoaim                     = false;
             aim2mcu_process();
         }
     }

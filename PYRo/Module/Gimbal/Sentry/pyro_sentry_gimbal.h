@@ -60,6 +60,7 @@ struct gimbal_cfg_t
     motor_cfg_t motor;
     pid_cfg_t pid;
     float yaw_offset{};
+    float pitch_offset{};
     float yaw_max_rad{};
     float yaw_min_rad{};
     float pitch_max_rad{};

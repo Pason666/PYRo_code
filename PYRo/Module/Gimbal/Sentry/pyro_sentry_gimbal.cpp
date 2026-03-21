@@ -33,6 +33,7 @@ void gimbal_t::_update_feedback()
     // 1. 获取当前角度和角速度
     _ctx.data.current_pitch_rad =
         _ctx.gimbal_config.motor.pitch->get_current_position();
+    test_cpitch = _ctx.data.current_pitch_rad;
 
 
     _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
@@ -51,7 +52,7 @@ void gimbal_t::_update_feedback()
 void gimbal_t::_gimbal_mec_control(gimbal_context_t *ctx)
 {
     ctx->data.target_pitch_radps =
-        -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
+        ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, ctx->data.current_pitch_rad);
 
     // pitch轴速度环
@@ -78,8 +79,6 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     ctx->data.target_pitch_radps =
         -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, pitch);
-    test_tpitch = ctx->data.target_pitch_rad;
-    test_cpitch = pitch;
 
     // pitch轴速度环
     ctx->data.out_pitch_torque =
