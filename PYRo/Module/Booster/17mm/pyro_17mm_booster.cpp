@@ -1,40 +1,33 @@
 #include "pyro_17mm_booster.h"
 #include <cmath>
 #include "pyro_core_def.h"
-
-float test_fric1_radps;
-float test_fric2_radps;
-float test_target_radps;
-float test_ttr;
-float test_ctr;
 float err;
-float gheat;
 
 extern pyro::booster_cmd_t *booster_cmd_ptr;
 namespace pyro
 {
 
 // ================== 物理与数学常量 ==================
-namespace
-{
-constexpr float PI_DIV_4                     = PI / 4.0f;
-
-// 速度与角度设定
-constexpr float SHOOT_BULLET_MUZZLE_VELOCITY = 22.2; // 枪口初速度
-constexpr float FRICTION_WHEEL_RADIUS        = 0.03f;
-constexpr float SHOOT_FIRE_RADPS =
-    (-SHOOT_BULLET_MUZZLE_VELOCITY / FRICTION_WHEEL_RADIUS); // 摩擦轮角速度
-
-// constexpr float TRIGGER_UNJAM_RADPS      = 6.0f;   // 解堵速度
-constexpr float TRIGGER_CONTINUOUS_RADPS = 10; // 连续发射速度（拨弹盘速度）
-
-// 堵转判定
-// constexpr float TRIGGER_BLOCK_RAD        = 0.2f; // 堵转判定弧度阈值
-// constexpr float TRIGGER_BLOCK_RADPS      = 5.0f; // 堵转判定速度阈值
-// constexpr uint16_t TRIGGER_BLOCK_TIME    = 300;  // 堵转判定时间阈值
-
-constexpr float TRIGGER_GEAR_RATIO       = 36.0f; // M2006拨弹电机减速比
-} // namespace
+// namespace
+// {
+// constexpr float PI_DIV_4                     = PI / 4.0f;
+//
+// // 速度与角度设定
+// constexpr float SHOOT_BULLET_MUZZLE_VELOCITY = 22.2; // 枪口初速度
+// constexpr float FRICTION_WHEEL_RADIUS        = 0.03f;
+// constexpr float SHOOT_FIRE_RADPS =
+//     (-SHOOT_BULLET_MUZZLE_VELOCITY / FRICTION_WHEEL_RADIUS); // 摩擦轮角速度
+//
+// // constexpr float TRIGGER_UNJAM_RADPS      = 6.0f;   // 解堵速度
+// constexpr float TRIGGER_CONTINUOUS_RADPS = 10; // 连续发射速度（拨弹盘速度）
+//
+// // 堵转判定
+// // constexpr float TRIGGER_BLOCK_RAD        = 0.2f; // 堵转判定弧度阈值
+// // constexpr float TRIGGER_BLOCK_RADPS      = 5.0f; // 堵转判定速度阈值
+// // constexpr uint16_t TRIGGER_BLOCK_TIME    = 300;  // 堵转判定时间阈值
+//
+// constexpr float TRIGGER_GEAR_RATIO       = 36.0f; // M2006拨弹电机减速比
+// } // namespace
 
 // ================== 基础接口实现 ==================
 shoot_17mm_control_t::shoot_17mm_control_t()
@@ -153,7 +146,6 @@ void shoot_17mm_control_t::_trig_control(shoot_17mm_control_t *ctx)
 
 void shoot_17mm_control_t::_fire_check(booster_ctx_t *ctx)
 {
-    gheat = ctx->cmd->power_heat;
     if (ctx->cmd->power_heat <= 18)
         ctx->cmd->fire_licence = true;
     else
@@ -172,108 +164,104 @@ void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)
 // ================== FSM 状态实现 ==================
 
 // 1. 停止状态 (SHOOT_STOP)
-void shoot_17mm_control_t::state_stop_t::enter(owner *ctx)
-{
-    ctx->_ctx.data.target_fric_radps[0] = 0;
-    ctx->_ctx.data.target_fric_radps[1] = 0;
-    ctx->_ctx.data.fric_pid_active      = true;
-
-    ctx->_ctx.data.trig_mode            = data_ctx_t::trig_mode_e::SPEED;
-    ctx->_ctx.data.target_trig_radps    = 0;
-    ctx->_ctx.data.trig_pid_active      = true;
-    ctx->_ctx.data.trig_output_enable   = false;
-}
-void shoot_17mm_control_t::state_stop_t::execute(owner *ctx)
-{
-    if (ctx->_ctx.cmd->is_fric_on)
-    {
-        this->request_switch(&ctx->_state_ready_fric);
-    }
-
-    if (std::abs(ctx->_ctx.data.current_fric_radps[0]) < 10 &&
-        std::abs(ctx->_ctx.data.current_fric_radps[1]) < 10)
-        ctx->_ctx.data.fric_pid_active = false;
-
-    if (std::abs(ctx->_ctx.data.current_trig_radps) < 0.01f)
-        ctx->_ctx.data.trig_pid_active = false;
-}
-void shoot_17mm_control_t::state_stop_t::exit(owner *ctx)
-{
-    // 强制重置模式和目标，防止旧数据残留
-    ctx->_ctx.data.trig_mode         = data_ctx_t::trig_mode_e::SPEED;
-    ctx->_ctx.data.target_trig_radps = 0;
-    // 这一行很重要：把位置目标也同步为当前位置，防止位置环有历史遗留误差
-    // ctx->_ctx.data.target_trig_rad   = ctx->_ctx.data.current_trig_rad;
-}
+// void shoot_17mm_control_t::state_stop_t::enter(owner *ctx)
+// {
+//     ctx->_ctx.data.target_fric_radps[0] = 0;
+//     ctx->_ctx.data.target_fric_radps[1] = 0;
+//     ctx->_ctx.data.fric_pid_active      = true;
+//
+//     ctx->_ctx.data.trig_mode            = data_ctx_t::trig_mode_e::SPEED;
+//     ctx->_ctx.data.target_trig_radps    = 0;
+//     ctx->_ctx.data.trig_pid_active      = true;
+//     ctx->_ctx.data.trig_output_enable   = false;
+// }
+// void shoot_17mm_control_t::state_stop_t::execute(owner *ctx)
+// {
+//     if (ctx->_ctx.cmd->is_fric_on)
+//     {
+//         this->request_switch(&ctx->_state_ready_fric);
+//     }
+//
+//     if (std::abs(ctx->_ctx.data.current_fric_radps[0]) < 10 &&
+//         std::abs(ctx->_ctx.data.current_fric_radps[1]) < 10)
+//         ctx->_ctx.data.fric_pid_active = false;
+//
+//     if (std::abs(ctx->_ctx.data.current_trig_radps) < 0.01f)
+//         ctx->_ctx.data.trig_pid_active = false;
+// }
+// void shoot_17mm_control_t::state_stop_t::exit(owner *ctx)
+// {
+//     // 强制重置模式和目标，防止旧数据残留
+//     ctx->_ctx.data.trig_mode         = data_ctx_t::trig_mode_e::SPEED;
+//     ctx->_ctx.data.target_trig_radps = 0;
+// }
 
 // 2. 摩擦轮启动状态 (SHOOT_READY_FRIC)
-void shoot_17mm_control_t::state_ready_fric_t::enter(owner *ctx)
-{
-    ctx->_ctx.data.target_fric_radps[0] = -ctx->_ctx.cmd->target_fric_speed;
-    ctx->_ctx.data.target_fric_radps[1] = ctx->_ctx.cmd->target_fric_speed;
-    ctx->_ctx.data.fric_pid_active      = true;
-    ctx->_ctx.data.trig_output_enable   = false;
-}
-void shoot_17mm_control_t::state_ready_fric_t::execute(owner *ctx)
-{
-    if (!ctx->_ctx.cmd->is_fric_on)
-    {
-        this->request_switch(&ctx->_state_stop);
-        return;
-    }
-
-    test_target_radps = ctx->_ctx.cmd->target_fric_speed;
-
-    // 检查摩擦轮速度是否达标 (误差小于 1.0 rad/s)
-    if (std::abs(ctx->_ctx.data.current_fric_radps[0] -
-                 -ctx->_ctx.cmd->target_fric_speed) < 150 &&
-        std::abs(ctx->_ctx.data.current_fric_radps[1] -
-                 ctx->_ctx.cmd->target_fric_speed) < 150)
-    {
-        this->request_switch(&ctx->_state_ready_shoot);
-    }
-}
-void shoot_17mm_control_t::state_ready_fric_t::exit(owner *ctx)
-{
-}
+// void shoot_17mm_control_t::state_ready_fric_t::enter(owner *ctx)
+// {
+//     ctx->_ctx.data.target_fric_radps[0] = -ctx->_ctx.cmd->target_fric_speed;
+//     ctx->_ctx.data.target_fric_radps[1] = ctx->_ctx.cmd->target_fric_speed;
+//     ctx->_ctx.data.fric_pid_active      = true;
+//     ctx->_ctx.data.trig_output_enable   = false;
+// }
+// void shoot_17mm_control_t::state_ready_fric_t::execute(owner *ctx)
+// {
+//     if (!ctx->_ctx.cmd->is_fric_on)
+//     {
+//         this->request_switch(&ctx->_state_stop);
+//         return;
+//     }
+//
+//     // 检查摩擦轮速度是否达标
+//     if (std::abs(ctx->_ctx.data.current_fric_radps[0] -
+//                  -ctx->_ctx.cmd->target_fric_speed) < 150 &&
+//         std::abs(ctx->_ctx.data.current_fric_radps[1] -
+//                  ctx->_ctx.cmd->target_fric_speed) < 150)
+//     {
+//         this->request_switch(&ctx->_state_ready_shoot);
+//     }
+// }
+// void shoot_17mm_control_t::state_ready_fric_t::exit(owner *ctx)
+// {
+// }
 
 // 3. 发射就绪状态 (SHOOT_READY_SHOOT)
-void shoot_17mm_control_t::state_ready_shoot_t::enter(owner *ctx)
-{
-    ctx->_ctx.data.fric_pid_active    = true;
-    ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::SPEED;
-    ctx->_ctx.data.target_trig_rad    = ctx->_ctx.data.current_trig_rad;
-    ctx->_ctx.data.target_trig_radps  = 0;
-    ctx->_ctx.data.trig_pid_active    = true;
-    ctx->_ctx.data.trig_output_enable = false;
-}
-void shoot_17mm_control_t::state_ready_shoot_t::execute(owner *ctx)
-{
-    if (!ctx->_ctx.cmd->is_fric_on)
-    {
-        this->request_switch(&ctx->_state_stop);
-        return;
-    }
-    if (ctx->_ctx.cmd->single_shoot)
-    {
-        // if (ctx->_ctx.data.is_calibrated)
-        // {
-        this->request_switch(&ctx->_state_single_bullet);
-        // }
-        // else
-        // {
-        //     this->request_switch(&ctx->_state_single_bullet);
-        // }
-    }
-    else if (ctx->_ctx.cmd->continue_shoot)
-    {
-        // ctx->_ctx.data.is_calibrated = false;
-        this->request_switch(&ctx->_state_continue_bullet);
-    }
-}
-void shoot_17mm_control_t::state_ready_shoot_t::exit(owner *ctx)
-{
-}
+// void shoot_17mm_control_t::state_ready_shoot_t::enter(owner *ctx)
+// {
+//     ctx->_ctx.data.fric_pid_active    = true;
+//     ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::SPEED;
+//     ctx->_ctx.data.target_trig_rad    = ctx->_ctx.data.current_trig_rad;
+//     ctx->_ctx.data.target_trig_radps  = 0;
+//     ctx->_ctx.data.trig_pid_active    = true;
+//     ctx->_ctx.data.trig_output_enable = false;
+// }
+// void shoot_17mm_control_t::state_ready_shoot_t::execute(owner *ctx)
+// {
+//     if (!ctx->_ctx.cmd->is_fric_on)
+//     {
+//         this->request_switch(&ctx->_state_stop);
+//         return;
+//     }
+//     if (ctx->_ctx.cmd->single_shoot)
+//     {
+//         // if (ctx->_ctx.data.is_calibrated)
+//         // {
+//         this->request_switch(&ctx->_state_single_bullet);
+//         // }
+//         // else
+//         // {
+//         //     this->request_switch(&ctx->_state_single_bullet);
+//         // }
+//     }
+//     else if (ctx->_ctx.cmd->continue_shoot)
+//     {
+//         // ctx->_ctx.data.is_calibrated = false;
+//         this->request_switch(&ctx->_state_continue_bullet);
+//     }
+// }
+// void shoot_17mm_control_t::state_ready_shoot_t::exit(owner *ctx)
+// {
+// }
 
 // 4. 反转预热状态 (SHOOT_REVERSE)
 // void shoot_17mm_control_t::state_reverse_t::enter(owner *ctx)
@@ -329,77 +317,73 @@ void shoot_17mm_control_t::state_ready_shoot_t::exit(owner *ctx)
 // }
 
 // 6. 单发状态 (SHOOT_SINGLE_BULLET)
-void shoot_17mm_control_t::state_single_bullet_t::enter(owner *ctx)
-{
-    ctx->_ctx.data.trig_mode = data_ctx_t::trig_mode_e::POSITION; // 切位置模式
-    ctx->_ctx.data.trig_pid_active = true;
-    ctx->_ctx.data.target_trig_rad = ctx->_ctx.data.current_trig_rad + PI_DIV_4;
-
-    ctx->_ctx.data.trig_output_enable = true;
-}
-
-void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
-{
-    if (!ctx->_ctx.cmd->is_fric_on)
-    {
-        this->request_switch(&ctx->_state_stop);
-        return;
-    }
-    err      = std::abs(ctx->_ctx.data.current_trig_rad -
-                        ctx->_ctx.data.target_trig_rad);
-    test_ctr = ctx->_ctx.data.current_trig_rad;
-    test_ttr = ctx->_ctx.data.target_trig_rad;
-    if (abs(err) < 0.05f)
-    {
-        this->request_switch(&ctx->_state_done);
-    }
-}
-
-void shoot_17mm_control_t::state_single_bullet_t::exit(owner *ctx)
-{
-    booster_cmd_ptr->single_shoot = false;
-}
+// void shoot_17mm_control_t::state_single_bullet_t::enter(owner *ctx)
+// {
+//     ctx->_ctx.data.trig_mode = data_ctx_t::trig_mode_e::POSITION; // 切位置模式
+//     ctx->_ctx.data.trig_pid_active = true;
+//     ctx->_ctx.data.target_trig_rad = ctx->_ctx.data.current_trig_rad + PI_DIV_4;
+//
+//     ctx->_ctx.data.trig_output_enable = true;
+// }
+//
+// void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
+// {
+//     if (!ctx->_ctx.cmd->is_fric_on)
+//     {
+//         this->request_switch(&ctx->_state_stop);
+//         return;
+//     }
+//     err      = std::abs(ctx->_ctx.data.current_trig_rad -
+//                         ctx->_ctx.data.target_trig_rad);
+//     if (abs(err) < 0.05f)
+//     {
+//         this->request_switch(&ctx->_state_done);
+//     }
+// }
+//
+// void shoot_17mm_control_t::state_single_bullet_t::exit(owner *ctx)
+// {
+//     booster_cmd_ptr->single_shoot = false;
+// }
 
 // 7. 连发状态 (SHOOT_CONTINUE_BULLET)
-void shoot_17mm_control_t::state_continue_bullet_t::enter(owner *ctx)
-{
-    ctx->_ctx.data.trig_mode = data_ctx_t::trig_mode_e::SPEED; // 切速度模式
-    ctx->_ctx.data.target_trig_radps  = TRIGGER_CONTINUOUS_RADPS;
-    ctx->_ctx.data.trig_pid_active    = true;
-    ctx->_ctx.data.trig_output_enable = true;
-}
-
-void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
-{
-    if (!ctx->_ctx.cmd->continue_shoot)
-    {
-        this->request_switch(&ctx->_state_done);
-        return;
-    }
-    // 移除堵弹检测逻辑
-    test_fric1_radps = ctx->_ctx.data.current_fric_radps[0];
-    test_fric2_radps = ctx->_ctx.data.current_fric_radps[1];
-}
-
-void shoot_17mm_control_t::state_continue_bullet_t::exit(owner *ctx)
-{
-}
+// void shoot_17mm_control_t::state_continue_bullet_t::enter(owner *ctx)
+// {
+//     ctx->_ctx.data.trig_mode = data_ctx_t::trig_mode_e::SPEED; // 切速度模式
+//     ctx->_ctx.data.target_trig_radps  = TRIGGER_CONTINUOUS_RADPS;
+//     ctx->_ctx.data.trig_pid_active    = true;
+//     ctx->_ctx.data.trig_output_enable = true;
+// }
+//
+// void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
+// {
+//     if (!ctx->_ctx.cmd->continue_shoot)
+//     {
+//         this->request_switch(&ctx->_state_done);
+//         return;
+//     }
+//     // 移除堵弹检测逻辑
+// }
+//
+// void shoot_17mm_control_t::state_continue_bullet_t::exit(owner *ctx)
+// {
+// }
 
 // 8. 射击完成状态 (SHOOT_DONE)
-void shoot_17mm_control_t::state_done_t::enter(owner *ctx)
-{
-    ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::SPEED;
-    ctx->_ctx.data.trig_pid_active    = true;
-    ctx->_ctx.data.target_trig_radps  = 0;
-    ctx->_ctx.data.trig_output_enable = false;
-}
-void shoot_17mm_control_t::state_done_t::execute(owner *ctx)
-{
-    this->request_switch(&ctx->_state_ready_shoot);
-}
-void shoot_17mm_control_t::state_done_t::exit(owner *ctx)
-{
-}
+// void shoot_17mm_control_t::state_done_t::enter(owner *ctx)
+// {
+//     ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::SPEED;
+//     ctx->_ctx.data.trig_pid_active    = true;
+//     ctx->_ctx.data.target_trig_radps  = 0;
+//     ctx->_ctx.data.trig_output_enable = false;
+// }
+// void shoot_17mm_control_t::state_done_t::execute(owner *ctx)
+// {
+//     this->request_switch(&ctx->_state_ready_shoot);
+// }
+// void shoot_17mm_control_t::state_done_t::exit(owner *ctx)
+// {
+// }
 
 // // 9. 堵弹调整状态 (SHOOT_ADJUST)
 // void shoot_17mm_control_t::state_adjust_t::enter(owner *ctx)

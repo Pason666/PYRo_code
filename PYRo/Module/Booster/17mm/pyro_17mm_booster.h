@@ -6,6 +6,7 @@
 #include "pyro_algo_common.h"
 #include "pyro_module_base.h"
 #include "pyro_dji_motor_drv.h"
+#include "pyro_17mm_config.h"
 
 #define FIRE_CHECK true
 
