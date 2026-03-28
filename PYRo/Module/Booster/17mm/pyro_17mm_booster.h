@@ -68,9 +68,6 @@ class shoot_17mm_control_t final
     shoot_17mm_control_t();
     ~shoot_17mm_control_t() override    = default;
 
-    // --- 参数 ---
-    static constexpr float FILTER_ALPHA = 0.12f; // 滤波系数 (0.05~0.2之间调试)
-
     // --- 基类接口 ---
     status_t _init() override;
     void _update_feedback() override;
@@ -142,18 +139,6 @@ class shoot_17mm_control_t final
         void execute(owner *ctx) override;
         void exit(owner *ctx) override;
     };
-    // struct state_reverse_t : public state_t<owner>
-    // {
-    //     void enter(owner *ctx) override;
-    //     void execute(owner *ctx) override;
-    //     void exit(owner *ctx) override;
-    // };
-    // struct state_cali_t : public state_t<owner>
-    // {
-    //     void enter(owner *ctx) override;
-    //     void execute(owner *ctx) override;
-    //     void exit(owner *ctx) override;
-    // };
     struct state_single_bullet_t : public state_t<owner>
     {
         void enter(owner *ctx) override;
@@ -172,23 +157,14 @@ class shoot_17mm_control_t final
         void execute(owner *ctx) override;
         void exit(owner *ctx) override;
     };
-    // struct state_adjust_t : public state_t<owner>
-    // {
-    //     void enter(owner *ctx) override;
-    //     void execute(owner *ctx) override;
-    //     void exit(owner *ctx) override;
-    // };
 
     fsm_t<owner> _main_fsm;
     state_stop_t _state_stop;
     state_ready_fric_t _state_ready_fric;
     state_ready_shoot_t _state_ready_shoot;
-    // state_reverse_t _state_reverse;
-    // state_cali_t _state_cali;
     state_single_bullet_t _state_single_bullet;
     state_continue_bullet_t _state_continue_bullet;
     state_done_t _state_done;
-    // state_adjust_t _state_adjust;
 };
 
 } // namespace pyro

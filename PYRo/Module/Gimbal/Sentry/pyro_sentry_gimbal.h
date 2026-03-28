@@ -7,7 +7,7 @@
 #include "pyro_dji_motor_drv.h"
 #include "pyro_dm_motor_drv.h"
 #include "pyro_motor_base.h"
-#include "pyro_ins.h" // 能不能用得上待定
+#include "pyro_ins.h"
 
 inline uint8_t auto_fire;
 

@@ -1,9 +1,6 @@
 #include "pyro_sentry_gimbal.h"
 float yaw, pitch, roll;
 
-
-float test_tpitch, test_cpitch, test_cyaw, test_tyaw, test_cyaw_radps,
-    test_tyaw_radps, test_output;
 namespace pyro
 {
 
@@ -33,8 +30,6 @@ void gimbal_t::_update_feedback()
     // 1. 获取当前角度和角速度
     _ctx.data.current_pitch_rad =
         _ctx.gimbal_config.motor.pitch->get_current_position();
-    test_cpitch = _ctx.data.current_pitch_rad;
-
 
     _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
     _ctx.data.current_pitch_radps =
@@ -89,18 +84,10 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, yaw);
-    test_tyaw                = ctx->data.target_yaw_rad;
-    test_cyaw                = yaw;
 
     // yaw轴速度环
     ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
         ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
-    test_cyaw_radps = ctx->data.current_yaw_radps;
-    test_tyaw_radps = ctx->data.target_yaw_radps;
-    test_output = ctx->data.out_yaw_torque;
-
-    // ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
-    //     ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
 }
 
 void gimbal_t::_send_motor_command(gimbal_context_t *ctx)

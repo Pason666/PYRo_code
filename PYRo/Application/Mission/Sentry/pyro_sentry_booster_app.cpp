@@ -11,6 +11,7 @@
 #include "pyro_uart_comm.h"
 #include "pyro_crc.h"
 #include "pyro_sentry_gimbal.h"
+#include "pyro_17mm_config.h"
 
 #include <algorithm>
 
@@ -42,8 +43,6 @@ void booster_config(booster_cfg_t &cfg)
     cfg.pid.bullet_speed_pid = new pid_t(0.01f, 0.0f, 0.00f, 5.00f, 10.0f);
 
     cfg.target_fric_speed    = 720;
-    // cfg.pid.trig_pos_pid = new pid_t(8.0f, 0.0f, 0.00f, 10, 100.0f);
-    // cfg.pid.trig_spd_pid = new pid_t(0.01f, 0.02f, 0.00f, 5.00f, 10.0f);
 }
 
 extern "C"
@@ -186,7 +185,7 @@ extern "C"
 
     status_t sentry_booster_init(void *argument)
     {
-        can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x102);
+        can_rx_drv_t::subscribe(can_hub_t::which_can::can3, 0x102);
         booster_cmd_ptr = new booster_cmd_t();
         booster_cfg_ptr = new booster_cfg_t();
 
@@ -195,8 +194,8 @@ extern "C"
         booster_ptr->configure(*booster_cfg_ptr);
         booster_ptr->start();
 
-        rc_ptr = static_cast<pyro::dr16_drv_t::dr16_ctrl_t const *>(
-            pyro::rc_hub_t::get_instance(pyro::rc_hub_t::DR16)->read());
+        rc_ptr = static_cast<dr16_drv_t::dr16_ctrl_t const *>(
+            rc_hub_t::get_instance(rc_hub_t::DR16)->read());
         xTaskCreate(booster_thread, "booster_thread", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
         vTaskDelete(nullptr);

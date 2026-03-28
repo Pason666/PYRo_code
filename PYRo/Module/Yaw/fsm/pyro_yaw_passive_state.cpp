@@ -14,8 +14,6 @@ void yaw_t::state_passive_t::execute(owner *owner)
 {
     owner->_ctx.data.out_yaw_radps = 0.0f;
     owner->_ctx.yaw_config.motor.yaw->send_torque(0);
-    // owner->_ctx.cmd->target_yaw_imu_angle =
-    //     owner->_ctx.cmd->current_yaw_imu_rad;
 }
 
 void yaw_t::state_passive_t::exit(owner *owner)

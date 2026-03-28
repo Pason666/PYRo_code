@@ -21,18 +21,10 @@ void shoot_17mm_control_t::state_ready_shoot_t::execute(owner *ctx)
     }
     if (ctx->_ctx.cmd->single_shoot)
     {
-        // if (ctx->_ctx.data.is_calibrated)
-        // {
         this->request_switch(&ctx->_state_single_bullet);
-        // }
-        // else
-        // {
-        //     this->request_switch(&ctx->_state_single_bullet);
-        // }
     }
     else if (ctx->_ctx.cmd->continue_shoot)
     {
-        // ctx->_ctx.data.is_calibrated = false;
         this->request_switch(&ctx->_state_continue_bullet);
     }
 }

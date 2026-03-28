@@ -12,11 +12,9 @@
 #include "pyro_crc.h"
 #include "pyro_uart_message.h"
 
-using namespace pyro;
+uint8_t a;
 
-float test_imu;
-float test_aim_yaw;
-float test_origin_aim_pitch;
+using namespace pyro;
 
 float bullet_speed;
 uint8_t game_started;
@@ -86,9 +84,16 @@ extern "C"
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            gimbal_cmd_ptr->target_delta_pitch_rad = p_ctrl->rc.ch_ry * 0.01f;
-            gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
-            autoaim                                = false;
+            if (abs(p_ctrl->rc.ch_ry) < 0.1f)
+                gimbal_cmd_ptr->target_delta_pitch_rad = 0;
+            else
+                gimbal_cmd_ptr->target_delta_pitch_rad =
+                    p_ctrl->rc.ch_ry * 0.01f;
+            if (abs(p_ctrl->rc.ch_rx) < 0.1f)
+                gimbal_cmd_ptr->target_delta_yaw_rad = 0;
+            else
+                gimbal_cmd_ptr->target_delta_yaw_rad = p_ctrl->rc.ch_rx * 0.02f;
+            autoaim = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
@@ -114,7 +119,7 @@ extern "C"
         static bool scanning    = false;
         static bool nav_enable  = false;
 
-        can_tx_drv_t::clear(0x101);
+        can_tx_drv_t::clear(0x123);
 
         if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
         {
@@ -129,8 +134,14 @@ extern "C"
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
-            vx         = static_cast<int8_t>(p_ctrl->rc.ch_lx * 127);
-            vy         = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
+            if (abs(p_ctrl->rc.ch_lx) < 0.1f)
+                vx = 0;
+            else
+                vx = static_cast<int8_t>(p_ctrl->rc.ch_lx * 127);
+            if (abs(p_ctrl->rc.ch_ly) < 0.1f)
+                vy = 0;
+            else
+                vy = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
             wz         = 0;
             delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
             follow_yaw = true;
@@ -146,15 +157,18 @@ extern "C"
             nav_enable = true;
         }
 
-        can_tx_drv_t::add_data(0x101, 8, vx);
-        can_tx_drv_t::add_data(0x101, 8, vy);
-        can_tx_drv_t::add_data(0x101, 8, wz);
-        can_tx_drv_t::add_data(0x101, 8, delta_yaw);
-        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(follow_yaw));
-        can_tx_drv_t::add_data(0x101, 1, static_cast<uint8_t>(active));
-        can_tx_drv_t::add_data(0x101, 6, static_cast<uint8_t>(scanning));
-        can_tx_drv_t::add_data(0x101, 8, static_cast<uint8_t>(nav_enable));
-        can_tx_drv_t::send(0x101, can_hub_t::get_instance()->hub_get_can_obj(
+        if (active == false)
+            a = 1;
+
+        can_tx_drv_t::add_data(0x123, 8, vx);
+        can_tx_drv_t::add_data(0x123, 8, vy);
+        can_tx_drv_t::add_data(0x123, 8, wz);
+        can_tx_drv_t::add_data(0x123, 8, delta_yaw);
+        can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(follow_yaw));
+        can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(active));
+        can_tx_drv_t::add_data(0x123, 6, static_cast<uint8_t>(scanning));
+        can_tx_drv_t::add_data(0x123, 8, static_cast<uint8_t>(nav_enable));
+        can_tx_drv_t::send(0x123, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
     }
 
@@ -207,7 +221,7 @@ extern "C"
         }
     }
     uint8_t header = 0xA5;
-    status_t sentry_gimbal_init(void *argument)
+    status_t sentry_gimbal_init()
     {
         gimbal_cmd_ptr = new gimbal_cmd_t();
         gimbal_cfg_ptr = new gimbal_cfg_t();
@@ -224,11 +238,10 @@ extern "C"
         gimbal_ptr->configure(*gimbal_cfg_ptr);
         gimbal_ptr->start();
 
-        rc_ctrl_ptr = static_cast<pyro::dr16_drv_t::dr16_ctrl_t const *>(
-            pyro::rc_hub_t::get_instance(pyro::rc_hub_t::DR16)->read());
+        rc_ctrl_ptr = static_cast<dr16_drv_t::dr16_ctrl_t const *>(
+            pyro::rc_hub_t::get_instance(rc_hub_t::DR16)->read());
         xTaskCreate(sentry_gimbal_thread, "sentry_gimbal_thread", 512, nullptr,
                     configMAX_PRIORITIES - 1, nullptr);
-        // vTaskDelete(nullptr);
         return PYRO_OK;
     }
 }

@@ -1,13 +1,9 @@
 #include "pyro_yaw.h"
 
+float test_target;
+float test_current;
 namespace pyro
 {
-float test_target_yaw_rad;
-float test_current_yaw_rad;
-float test_yaw_torque;
-float test_target_yaw_imu_angle;
-float test_out_yaw_radps;
-
 int yaw_rotation_loops = 0;
 
 float calculate_yaw_error(float target, float current, int &loops)
@@ -37,8 +33,6 @@ float calculate_yaw_error(float target, float current, int &loops)
 
 void yaw_t::fsm_active_t::state_manual_t::enter(owner *owner)
 {
-    // owner->_ctx.cmd->target_yaw_imu_angle = owner->_ctx.cmd->current_yaw_imu_rad;
-    // yaw_rotation_loops = 0;
 }
 
 void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
@@ -46,14 +40,33 @@ void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
     owner->_ctx.data.world_yaw_error = calculate_yaw_error(
         owner->_ctx.cmd->target_yaw_imu_angle,
         owner->_ctx.cmd->current_yaw_imu_rad, yaw_rotation_loops);
+    test_current = owner->_ctx.cmd->current_yaw_imu_rad;
+    test_target = owner->_ctx.cmd->target_yaw_imu_angle;
 
     owner->_ctx.data.out_yaw_radps =
         owner->_ctx.yaw_config.pid.yaw_pos_pid->calculate(
             0, owner->_ctx.data.world_yaw_error);
+
+    // owner->_ctx.data.out_yaw_radps =
+    //     -owner->_ctx.yaw_config.pid.yaw_pos_pid->calculate(
+    //         owner->_ctx.cmd->target_yaw_imu_angle,
+    //         owner->_ctx.cmd->current_yaw_imu_rad);
+
+
     owner->_ctx.data.out_yaw_torque =
         owner->_ctx.yaw_config.pid.yaw_spd_pid->calculate(
             owner->_ctx.data.out_yaw_radps, owner->_ctx.data.current_yaw_radps);
 
+    // if (abs(owner->_ctx.cmd->target_yaw_imu_angle -
+    //         owner->_ctx.cmd->current_yaw_imu_rad) < 0.005f)
+    // {
+    //     owner->_ctx.data.out_yaw_torque = 0;
+    // }
+
+    if (abs(owner->_ctx.data.world_yaw_error) < 0.005f)
+    {
+        owner->_ctx.data.out_yaw_torque = 0;
+    }
     _send_motor_command(&owner->_ctx);
 }
 
