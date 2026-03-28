@@ -11,8 +11,6 @@ void shoot_17mm_control_t::state_single_bullet_t::enter(owner *ctx)
     ctx->_ctx.data.trig_mode = data_ctx_t::trig_mode_e::POSITION; // 切位置模式
     ctx->_ctx.data.trig_pid_active = true;
     ctx->_ctx.data.target_trig_rad = ctx->_ctx.data.current_trig_rad + PI / 4;
-
-    ctx->_ctx.data.trig_output_enable = true;
 }
 
 void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)

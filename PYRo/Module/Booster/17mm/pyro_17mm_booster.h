@@ -14,14 +14,15 @@ namespace pyro
 {
 struct booster_cmd_t : cmd_base_t
 {
-    bool is_fric_on; // 摩擦轮是否开启
-    bool single_shoot;   // 触发单发
-    bool continue_shoot; // 触发连发
+    bool is_fric_on;            // 摩擦轮是否开启
+    bool single_shoot;          // 触发单发
+    bool continue_shoot;        // 触发连发
+    bool fire_licence{}; // 发射许可，为false时拨弹盘绝对不允许转动
+
+    uint16_t ammo_count{};      // 剩余发弹量（裁判系统反馈）
+    uint8_t power_heat{};       // 当前热量（除以10 0~26）
     float current_bullet_mps{}; // 当前弹速（裁判系统反馈）
-    uint16_t ammo_count{}; //剩余发弹量（裁判系统反馈）
-    uint8_t power_heat{}; //当前热量（除以10 0~26）
-    bool fire_licence{}; //发射许可，为false时拨弹盘绝对不允许转动
-    float target_fric_speed = 720.0f;
+
     booster_cmd_t()
         : is_fric_on(false), single_shoot(false), continue_shoot(false)
     {
@@ -65,11 +66,9 @@ class shoot_17mm_control_t final
 
   private:
     shoot_17mm_control_t();
-    ~shoot_17mm_control_t() override = default;
+    ~shoot_17mm_control_t() override    = default;
 
     // --- 参数 ---
-    float _filtered_speed_error = 0.0f;  // 滤波后的累积误差
-    bool _first_ball_received = false;    // 标记是否接收到第一发弹
     static constexpr float FILTER_ALPHA = 0.12f; // 滤波系数 (0.05~0.2之间调试)
 
     // --- 基类接口 ---
@@ -86,19 +85,16 @@ class shoot_17mm_control_t final
     struct data_ctx_t
     {
         // 供状态机内部读取的状态变量
-        bool is_calibrated  = false;
-        uint16_t block_time = 0;
-        bool fric_pid_active = true;
-        bool trig_pid_active = true;
-        bool trig_output_enable = false;
-        bool fire_flag = false;
+        uint16_t block_time     = 0;
+        bool fric_pid_active    = true;
+        bool trig_pid_active    = true;
         enum class trig_mode_e
         {
             SPEED,
             POSITION
-        } trig_mode = trig_mode_e::SPEED;
-        bool  is_first_update = true; //计圈辅助变量
-        float last_rotor_rad  = 0.0f; //计圈辅助变量
+        } trig_mode          = trig_mode_e::SPEED;
+        bool is_first_update = true; // 计圈辅助变量
+        float last_rotor_rad = 0.0f; // 计圈辅助变量
         float current_fric_radps[2]{};
         float current_trig_rad{};
         float current_trig_radps{};

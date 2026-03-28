@@ -3,8 +3,6 @@
 
 namespace pyro
 {
-constexpr float PI_DIV_4                     = PI / 4.0f;
-
 // 速度与角度设定
 constexpr float SHOOT_BULLET_MUZZLE_VELOCITY = 22.2; // 枪口初速度
 constexpr float FRICTION_WHEEL_RADIUS        = 0.03f;
@@ -23,4 +21,4 @@ constexpr float TRIGGER_GEAR_RATIO       = 36.0f; // M2006拨弹电机减速比
 
 }
 
-#endif // PYRO_PYRO_17MM_CONFIG_H
+#endif // __PYRO_PYRO_17MM_CONFIG_H__

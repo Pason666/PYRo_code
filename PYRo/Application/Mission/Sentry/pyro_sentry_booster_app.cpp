@@ -41,7 +41,7 @@ void booster_config(booster_cfg_t &cfg)
     cfg.pid.trig_spd_pid     = new pid_t(100.0f, 0.04f, 0.0f, 5.0f, 20.0f);
     cfg.pid.bullet_speed_pid = new pid_t(0.01f, 0.0f, 0.00f, 5.00f, 10.0f);
 
-    cfg.target_fric_speed    = 230;
+    cfg.target_fric_speed    = 720;
     // cfg.pid.trig_pos_pid = new pid_t(8.0f, 0.0f, 0.00f, 10, 100.0f);
     // cfg.pid.trig_spd_pid = new pid_t(0.01f, 0.02f, 0.00f, 5.00f, 10.0f);
 }
@@ -160,14 +160,14 @@ extern "C"
                                                                      pid_input);
 
                 // --- E. 执行与限幅 ---
-                booster_cmd_ptr->target_fric_speed += speed_increment;
+                booster_cfg_ptr->target_fric_speed += speed_increment;
 
                 constexpr float MAX_FRIC1_MPS = 730.0f;
                 constexpr float MIN_FRIC1_MPS = 710.0f;
 
                 // 使用 std::clamp (C++17) 更简洁，若不支持则换回 if-else
-                booster_cmd_ptr->target_fric_speed =
-                    std::clamp(booster_cmd_ptr->target_fric_speed,
+                booster_cfg_ptr->target_fric_speed =
+                    std::clamp(booster_cfg_ptr->target_fric_speed,
                                MIN_FRIC1_MPS, MAX_FRIC1_MPS);
             }
         }
