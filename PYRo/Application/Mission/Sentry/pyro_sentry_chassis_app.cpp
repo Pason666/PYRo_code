@@ -172,7 +172,7 @@ extern "C"
         {
             rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
             rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
-            rud_cmd_ptr->wz                   = 5;
+            rud_cmd_ptr->wz                   = 10;
             yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.wz;
         }
 
@@ -196,6 +196,7 @@ extern "C"
     void referee_process(const referee_drv_t *referee_drv)
     {
         referee_data = referee_drv->get_data();
+
     }
 
     void chassis2gimbal()
@@ -209,7 +210,7 @@ extern "C"
         // uint16_t ammo_count =
         //     referee_data.allowance
         //         .projectile_allowance_17mm; // 剩余允许发弹量（0x0208）
-        // test_buffer_energy = referee_data.power_heat.buffer_energy;
+        test_buffer_energy = referee_data.power_heat.buffer_energy;
         // uint8_t power_heat = referee_data.power_heat.shooter_17mm_barrel_heat
         // / 10;
         uint8_t enemy_color;

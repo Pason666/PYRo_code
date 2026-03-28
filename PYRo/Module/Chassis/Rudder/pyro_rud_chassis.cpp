@@ -1,8 +1,11 @@
 #include "pyro_rud_chassis.h"
 
-float test_power_limit{};
+
 namespace pyro
 {
+supercap_drv_t::cap_feedback_t test_cap_feedback{};
+float test_chassis_power_cap{};
+float test_cap_power_cap{};
 /**********************************************************************/
 float test_cspeed[4]{};
 float tspeed[4]{};
@@ -113,6 +116,9 @@ void rud_chassis_t::_update_feedback()
 
     // 4. 更新 cap_rx 数据
     _ctx.cap_feedback = supercap_drv_t::get_instance()->get_feedback();
+    test_cap_feedback = _ctx.cap_feedback;
+    test_chassis_power_cap = test_cap_feedback.chassis_power_cap / 100.0f;
+    test_cap_power_cap = test_cap_feedback.cap_power_cap / 100.0f - 250;
 }
 
 void rud_chassis_t::_kinematics_solve()
@@ -190,7 +196,7 @@ void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
                             ->get_data()
                             .robot_status.chassis_power_limit;
 
-    if (ctx->cap_feedback.vot_cap >= 1800)
+    if (ctx->cap_feedback.vot_cap >= 1000)
     {
         // 平均分配
         power_controller.calculate_restricted_torques(

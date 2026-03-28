@@ -15,7 +15,6 @@
 
 namespace pyro
 {
-
 // 定义舵轮特有的命令结构（如果有额外参数）
 struct rud_cmd_t : cmd_base_t
 {

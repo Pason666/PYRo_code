@@ -8,7 +8,7 @@
 #include "pyro_dji_motor_drv.h"
 #include "pyro_17mm_config.h"
 
-#define FIRE_CHECK true
+#define FIRE_CHECK false
 
 namespace pyro
 {
