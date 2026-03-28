@@ -151,6 +151,11 @@ extern "C"
         yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[5]);
         rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
         // rud_cmd_ptr->follow_yaw = false;
+        if (cmd_base_t::mode_t::PASSIVE == yaw_cmd_ptr->mode)
+        {
+            yaw_cmd_ptr->target_yaw_imu_angle =
+               yaw_cmd_ptr->current_yaw_imu_rad;
+        }
         if (yaw_cmd_ptr->nav_enable == false)
         {
             rud_cmd_ptr->vx =
@@ -196,7 +201,6 @@ extern "C"
     void referee_process(const referee_drv_t *referee_drv)
     {
         referee_data = referee_drv->get_data();
-
     }
 
     void chassis2gimbal()

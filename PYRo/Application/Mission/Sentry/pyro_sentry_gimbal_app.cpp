@@ -105,7 +105,6 @@ extern "C"
             rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
-
         static int8_t vx        = 0;
         static int8_t vy        = 0;
         static int8_t wz        = 0;

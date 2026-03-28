@@ -37,6 +37,8 @@ float calculate_yaw_error(float target, float current, int &loops)
 
 void yaw_t::fsm_active_t::state_manual_t::enter(owner *owner)
 {
+    // owner->_ctx.cmd->target_yaw_imu_angle = owner->_ctx.cmd->current_yaw_imu_rad;
+    // yaw_rotation_loops = 0;
 }
 
 void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
@@ -50,8 +52,7 @@ void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
             0, owner->_ctx.data.world_yaw_error);
     owner->_ctx.data.out_yaw_torque =
         owner->_ctx.yaw_config.pid.yaw_spd_pid->calculate(
-            owner->_ctx.data.out_yaw_radps,
-            owner->_ctx.data.current_yaw_radps);
+            owner->_ctx.data.out_yaw_radps, owner->_ctx.data.current_yaw_radps);
 
     _send_motor_command(&owner->_ctx);
 }
