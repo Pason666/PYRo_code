@@ -66,22 +66,22 @@ void chassis_config(rud_cfg_t &rud_cfg)
         new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_4,
                                   can_hub_t::can1); // FR Wheel
 
-    rud_cfg.pid.wheel_pid[0]   = new pid_t(20.0f, 0.0f, 0.00f, 0.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[1]   = new pid_t(20.0f, 0.0f, 0.00f, 0.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[2]   = new pid_t(20.0f, 0.0f, 0.00f, 0.00f, 20.0f);
-    rud_cfg.pid.wheel_pid[3]   = new pid_t(20.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[0]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[1]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[2]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
+    rud_cfg.pid.wheel_pid[3]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
-    rud_cfg.pid.rud_pos_pid[0] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[1] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[0] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[1] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
     rud_cfg.pid.rud_pos_pid[2] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[3] = new pid_t(25.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[3] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
 
-    rud_cfg.pid.follow_yaw_pid = new pid_t(14.0f, 0.0f, 1.8, 0, 100.0f);
+    rud_cfg.pid.follow_yaw_pid = new pid_t(14.0f, 0.0f, 1.8, 0, 30.0f);
 
     rud_cfg.rud_pos_moving_offset[0] = 1.01472831f;
     rud_cfg.rud_pos_moving_offset[1] = -0.29145637f;
@@ -168,8 +168,8 @@ extern "C"
                     static_cast<float>(static_cast<int8_t>(raw_data[2]));
 
                 yaw_cmd_ptr->target_yaw_imu_angle -=
-                    static_cast<float>(static_cast<int8_t>(raw_data[3])) / 127.0f *
-                    0.005f;
+                    static_cast<float>(static_cast<int8_t>(raw_data[3])) /
+                    127.0f * 0.005f;
                 memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
             }
             else
@@ -217,8 +217,7 @@ extern "C"
             enemy_color = 1;
         else
             enemy_color = 0;
-        bool game_started =
-            referee_data.game_status.game_progress == 4;
+        bool game_started   = referee_data.game_status.game_progress == 4;
         uint8_t rmul_center = referee_data.field_event.central_buff_point;
         uint8_t power_heat =
             referee_data.power_heat.shooter_17mm_barrel_heat / 10;
@@ -244,12 +243,15 @@ extern "C"
 
     void mcu2nav_process()
     {
-        mcu2nav_msg.data.hp = referee_data.robot_status.current_hp;
-        mcu2nav_msg.data.ammo =
+        mcu2nav_msg.data.self_hp = referee_data.robot_status.current_hp;
+        mcu2nav_msg.data.self_ammo =
             referee_data.allowance.projectile_allowance_17mm;
-        mcu2nav_msg.data.game_state = referee_data.game_status.game_progress;
-        mcu2nav_msg.data.controlling_status =
-            referee_data.field_event.central_buff_point;
+        mcu2nav_msg.data.game_state   = referee_data.game_status.game_progress;
+        mcu2nav_msg.data.self_base_hp = referee_data.game_robot_hp.base_hp;
+        mcu2nav_msg.data.self_outpost_hp =
+            referee_data.game_robot_hp.outpost_hp;
+        mcu2nav_msg.data.game_time =
+            referee_data.game_status.stage_remain_time; // 当前阶段剩余时间
 
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2nav_msg),
                                sizeof(mcu2nav_msg)); // 添加CRC校验
@@ -285,8 +287,8 @@ extern "C"
     status_t sentry_chassis_init(void *argument)
     {
         // 初始化区域
-        can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x123);
-        can_rx_drv_t::subscribe(pyro::can_hub_t::which_can::can3, 0x103);
+        can_rx_drv_t::subscribe(can_hub_t::which_can::can3, 0x123);
+        can_rx_drv_t::subscribe(can_hub_t::which_can::can3, 0x103);
         rud_cmd_ptr = new rud_cmd_t();
         rud_cfg_ptr = new rud_cfg_t();
         yaw_cmd_ptr = new yaw_cmd_t();
@@ -309,7 +311,7 @@ extern "C"
         rud_chassis_ptr->start();
         yaw_ptr->start();
 
-        power_meter = new pyro::powermeter_drv_t(0x212, pyro::can_hub_t::can2);
+        power_meter = new powermeter_drv_t(0x212, can_hub_t::can2);
         power_meter->init();
 
         xTaskCreate(sentry_chassis_thread, "sentry_chassis_thread", 512,

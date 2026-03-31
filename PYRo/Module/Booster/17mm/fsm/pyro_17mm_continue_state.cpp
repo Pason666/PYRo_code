@@ -18,7 +18,6 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
     if (!ctx->_ctx.cmd->continue_shoot)
     {
         this->request_switch(&ctx->_state_done);
-        return;
     }
     // 移除堵弹检测逻辑
 }

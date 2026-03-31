@@ -30,19 +30,19 @@ static constexpr float FILTER_ALPHA = 0.12f;
 void booster_config(booster_cfg_t &cfg)
 {
     cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3,
-                                                  can_hub_t::can2); // 右摩擦轮
+                                                  can_hub_t::can1); // 右摩擦轮
     cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,
-                                                  can_hub_t::can2); // 左摩擦轮
+                                                  can_hub_t::can1); // 左摩擦轮
     cfg.motor.trigger =
-        new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
+        new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can1);
 
-    cfg.pid.fric_pid[0]      = new pid_t(1.0f, 0.0f, 0.0f, 0.8f, 20.0f);
-    cfg.pid.fric_pid[1]      = new pid_t(1.0f, 0.0f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.fric_pid[0]      = new pid_t(0.9f, 0.0f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.fric_pid[1]      = new pid_t(0.9f, 0.0f, 0.0f, 0.8f, 20.0f);
     cfg.pid.trig_pos_pid     = new pid_t(1000.0f, 0.0f, 0.0f, 100.0f, 1000.0f);
-    cfg.pid.trig_spd_pid     = new pid_t(100.0f, 0.04f, 0.0f, 5.0f, 20.0f);
+    cfg.pid.trig_spd_pid     = new pid_t(5.0f, 1.5f, 0.0f, 5.0f, 10.0f);
     cfg.pid.bullet_speed_pid = new pid_t(0.01f, 0.0f, 0.00f, 5.00f, 10.0f);
 
-    cfg.target_fric_speed    = 720;
+    cfg.target_fric_speed    = 800;
 }
 
 extern "C"
@@ -115,62 +115,62 @@ extern "C"
         booster_cmd_ptr->power_heat = raw_data[5];
     }
 
-    void speed_control(void)
-    {
-        std::array<uint8_t, 8> raw_data{};
-        if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data))
-        {
-            float current_speed = raw_data[0] + raw_data[1] / 100.0f;
-            if (current_speed < 1.0f)
-            {
-                current_speed = booster_cfg_ptr->target_fric_speed;
-            }
-            if (booster_cfg_ptr->target_fric_speed > 7.5f)
-            {
-                // --- A. 计算当前瞬时误差 ---
-                float error_now =
-                    current_speed - booster_cfg_ptr->target_fric_speed;
-
-                // --- B. 一阶低通滤波 (核心逻辑) ---
-                // 公式: Output = Alpha * Input + (1 - Alpha) * Output_Last
-                if (!first_ball_received)
-                {
-                    // 第一发弹：直接初始化滤波器
-                    filtered_speed_error = error_now;
-                    first_ball_received  = true;
-                }
-                else
-                {
-                    // 后续发弹：平滑累积误差
-                    filtered_speed_error =
-                        FILTER_ALPHA * error_now +
-                        (1 - FILTER_ALPHA) * filtered_speed_error;
-                }
-
-                // --- C. 构造带符号的“类平方误差” ---
-                // 作用：让大误差被更大权重地修正，小误差被抑制
-                float pid_input =
-                    filtered_speed_error * std::abs(filtered_speed_error);
-
-                // --- D. PID 计算速度增量 ---
-                // 逻辑保持不变：将 pid_input 视为误差，期望将其控制到 0
-                float speed_increment =
-                    booster_cfg_ptr->pid.bullet_speed_pid->calculate(0.0f,
-                                                                     pid_input);
-
-                // --- E. 执行与限幅 ---
-                booster_cfg_ptr->target_fric_speed += speed_increment;
-
-                constexpr float MAX_FRIC1_MPS = 730.0f;
-                constexpr float MIN_FRIC1_MPS = 710.0f;
-
-                // 使用 std::clamp (C++17) 更简洁，若不支持则换回 if-else
-                booster_cfg_ptr->target_fric_speed =
-                    std::clamp(booster_cfg_ptr->target_fric_speed,
-                               MIN_FRIC1_MPS, MAX_FRIC1_MPS);
-            }
-        }
-    }
+    // void speed_control(void)
+    // {
+    //     std::array<uint8_t, 8> raw_data{};
+    //     if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data))
+    //     {
+    //         float current_speed = raw_data[0] + raw_data[1] / 100.0f;
+    //         if (current_speed < 1.0f)
+    //         {
+    //             current_speed = booster_cfg_ptr->target_fric_speed;
+    //         }
+    //         if (booster_cfg_ptr->target_fric_speed > 7.5f)
+    //         {
+    //             // --- A. 计算当前瞬时误差 ---
+    //             float error_now =
+    //                 current_speed - booster_cfg_ptr->target_fric_speed;
+    //
+    //             // --- B. 一阶低通滤波 (核心逻辑) ---
+    //             // 公式: Output = Alpha * Input + (1 - Alpha) * Output_Last
+    //             if (!first_ball_received)
+    //             {
+    //                 // 第一发弹：直接初始化滤波器
+    //                 filtered_speed_error = error_now;
+    //                 first_ball_received  = true;
+    //             }
+    //             else
+    //             {
+    //                 // 后续发弹：平滑累积误差
+    //                 filtered_speed_error =
+    //                     FILTER_ALPHA * error_now +
+    //                     (1 - FILTER_ALPHA) * filtered_speed_error;
+    //             }
+    //
+    //             // --- C. 构造带符号的“类平方误差” ---
+    //             // 作用：让大误差被更大权重地修正，小误差被抑制
+    //             float pid_input =
+    //                 filtered_speed_error * std::abs(filtered_speed_error);
+    //
+    //             // --- D. PID 计算速度增量 ---
+    //             // 逻辑保持不变：将 pid_input 视为误差，期望将其控制到 0
+    //             float speed_increment =
+    //                 booster_cfg_ptr->pid.bullet_speed_pid->calculate(0.0f,
+    //                                                                  pid_input);
+    //
+    //             // --- E. 执行与限幅 ---
+    //             booster_cfg_ptr->target_fric_speed += speed_increment;
+    //
+    //             constexpr float MAX_FRIC1_MPS = 730.0f;
+    //             constexpr float MIN_FRIC1_MPS = 710.0f;
+    //
+    //             // 使用 std::clamp (C++17) 更简洁，若不支持则换回 if-else
+    //             booster_cfg_ptr->target_fric_speed =
+    //                 std::clamp(booster_cfg_ptr->target_fric_speed,
+    //                            MIN_FRIC1_MPS, MAX_FRIC1_MPS);
+    //         }
+    //     }
+    // }
 
     void booster_thread(void *argument)
     {

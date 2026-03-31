@@ -35,23 +35,22 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 {
     gimbal_cfg.motor.yaw = new dji_gm_6020_motor_drv_t(
         dji_motor_tx_frame_t::id_1, can_hub_t::can1);
-    gimbal_cfg.motor.pitch = new dm_motor_drv_t(0x01, 0x00, can_hub_t::can1);
+    gimbal_cfg.motor.pitch = new dm_motor_drv_t(0x01, 0x00, can_hub_t::can2);
     gimbal_cfg.motor.pitch->set_position_range(-PI, PI);
     gimbal_cfg.motor.pitch->set_rotate_range(-20, 20);
     gimbal_cfg.motor.pitch->set_torque_range(-10, 10);
 
-    gimbal_cfg.pitch_max_rad = 0.43f; // 最高的时候
-    gimbal_cfg.pitch_min_rad = 0.18f; // 最低的时候
-    gimbal_cfg.yaw_max_rad   = 0.70f;
-    gimbal_cfg.yaw_min_rad   = -0.70f;
+    gimbal_cfg.pitch_max_rad     = 0.43f; // 最高的时候
+    gimbal_cfg.pitch_min_rad     = 0.18f; // 最低的时候
+    gimbal_cfg.yaw_max_rad       = 0.70f;
+    gimbal_cfg.yaw_min_rad       = -0.70f;
 
-    gimbal_cfg.pid.pitch_pos_pid =
-        new pid_t(50.0f, 0.001f, 0.5f, 0.5f, 15, 0, 100, 2);
-    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.6f, 0.0f, 0.0f, 0.5f, 6.0f);
+    gimbal_cfg.pid.pitch_pos_pid = new pid_t(90.0f, 0.001f, 1.8f, 0.5f, 20);
+    gimbal_cfg.pid.pitch_spd_pid = new pid_t(1.1f, 0.0f, 0.0f, 0.5f, 6.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-        new pid_t(50.0f, 0.0f, 0.00f, 0, 50.0f, 0, 90, 2);
-    gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.00001f, 0.2f, 6);
+        new pid_t(50.0f, 0.0f, 0.8f, 0, 50.0f, 0, 90, 2);
+    gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.0f, 0.2f, 6);
 
     gimbal_cfg.yaw_offset      = 2.05022361f;
 }
@@ -84,16 +83,9 @@ extern "C"
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
             gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            if (abs(p_ctrl->rc.ch_ry) < 0.1f)
-                gimbal_cmd_ptr->target_delta_pitch_rad = 0;
-            else
-                gimbal_cmd_ptr->target_delta_pitch_rad =
-                    p_ctrl->rc.ch_ry * 0.01f;
-            if (abs(p_ctrl->rc.ch_rx) < 0.1f)
-                gimbal_cmd_ptr->target_delta_yaw_rad = 0;
-            else
-                gimbal_cmd_ptr->target_delta_yaw_rad = p_ctrl->rc.ch_rx * 0.02f;
-            autoaim = false;
+            gimbal_cmd_ptr->target_delta_pitch_rad = p_ctrl->rc.ch_ry * 0.005f;
+            gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
+            autoaim                                = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
