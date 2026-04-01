@@ -14,6 +14,13 @@
 #include "pyro_dwt_drv.h"
 #include "main.h" // For CoreDebug, DWT registers
 
+extern "C"{
+    uint64_t get_dwt_us()
+    {
+        return pyro::dwt_drv_t::get_timeline_us();
+    }
+}
+
 namespace pyro
 {
 /**

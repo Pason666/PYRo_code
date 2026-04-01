@@ -50,6 +50,8 @@
 /* Ensure definitions are only used by the compiler, and not by the assembler. */
 #if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
   #include <stdint.h>
+  #include "stm32h7xx_hal.h"
+  #include "core_cm7.h"
   extern uint32_t SystemCoreClock;
 #endif
 #define configENABLE_FPU                         0
@@ -71,6 +73,11 @@
 #define configQUEUE_REGISTRY_SIZE                8
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION  1
 /* USER CODE BEGIN MESSAGE_BUFFER_LENGTH_TYPE */
+// ====================== RTOS 调试必需宏 ======================
+#define configUSE_TRACE_FACILITY                1
+#define configUSE_STATS_FORMATTING_FUNCTIONS     1
+#define configGENERATE_RUN_TIME_STATS            1
+#define configRECORD_STACK_HIGH_ADDRESS          1
 /* Defaults to size_t for backward compatibility, but can be changed
    if lengths will always be less than the number of bytes in a size_t. */
 #define configMESSAGE_BUFFER_LENGTH_TYPE         size_t
@@ -90,6 +97,10 @@ to exclude the API function. */
 #define INCLUDE_vTaskDelayUntil              1
 #define INCLUDE_vTaskDelay                   1
 #define INCLUDE_xTaskGetSchedulerState       1
+
+// ====================== RTOS 调试必需宏 ======================
+#define INCLUDE_xTaskGetIdleTaskHandle       1
+#define INCLUDE_uxTaskGetStackHighWaterMark  1
 
 /* Cortex-M specific definitions. */
 #ifdef __NVIC_PRIO_BITS
@@ -133,6 +144,31 @@ standard names. */
 #define xPortSysTickHandler SysTick_Handler
 
 /* USER CODE BEGIN Defines */
+// ====================== DWT 宏定义 ======================
+// #include "core_cm7.h"
+
+// #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    do{ CoreDebug->DEMCR|=1<<24; DWT->CTRL|=1; DWT->CYCCNT=0; }while(0)
+// #define portGET_RUN_TIME_COUNTER_VALUE()            DWT->CYCCNT
+
+
+// #if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
+// #include "pyro_dwt_drv.h"
+
+// // 初始化
+// #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    pyro::dwt_drv_t::init(480)
+
+// // 获取当前计数值
+// #define portGET_RUN_TIME_COUNTER_VALUE()            pyro::dwt_drv_t::get_timeline_us()
+
+// #endif
+
+#if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
+extern uint64_t get_dwt_us();
+
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()    do{}while(0)
+#define portGET_RUN_TIME_COUNTER_VALUE()            get_dwt_us()
+
+#endif
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
 /* USER CODE END Defines */
 
