@@ -29,9 +29,6 @@ struct gimbal_cmd_t final : cmd_base_t
     float aim_imu_yaw_rad{};
     bool is_aiming = false;
 
-    float test_pitch_radps{};
-    float test_yaw_radps{};
-
     gimbal_mode_t gimbal_mode;
 
     gimbal_cmd_t()
@@ -60,7 +57,6 @@ struct gimbal_cfg_t
     motor_cfg_t motor;
     pid_cfg_t pid;
     float yaw_offset{};
-    float pitch_offset{};
     float yaw_max_rad{};
     float yaw_min_rad{};
     float pitch_max_rad{};
@@ -179,29 +175,11 @@ class gimbal_t final
             void exit(owner *owner) override;
         };
 
-        struct fsm_tracking_t : public fsm_t<owner>
+        struct state_tracking_t : public state_t<owner>
         {
-            struct state_turning_fine_t : public state_t<owner>
-            {
-                void enter(owner *owner) override;
-                void execute(owner *owner) override;
-                void exit(owner *owner) override;
-            };
-
-            struct state_turning_coarse_t : public state_t<owner>
-            {
-                void enter(owner *owner) override;
-                void execute(owner *owner) override;
-                void exit(owner *owner) override;
-            };
-
-            void on_enter(owner *owner) override;
-            void on_execute(owner *owner) override;
-            void on_exit(owner *owner) override;
-
-          private:
-            state_turning_fine_t _turning_fine_state;
-            state_turning_coarse_t _turning_coarse_state;
+            void enter(owner *owner) override;
+            void execute(owner *owner) override;
+            void exit(owner *owner) override;
         };
 
         void on_enter(owner *owner) override;
@@ -211,7 +189,7 @@ class gimbal_t final
       private:
         state_scanning_t _scanning_state;
         state_manual_t _manual_state;
-        fsm_tracking_t _tracking_state;
+        state_tracking_t _tracking_state;
     };
 
     state_passive_t _passive_state;
