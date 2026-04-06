@@ -4,7 +4,7 @@ float yaw, pitch, roll;
 namespace pyro
 {
 
-float aim_yaw, aim_pitch;
+float aim_yaw, my_pitchps, my_pitch, my_torque;
 float test_current_pos;
 
 float gravity_offset = 0.7;
@@ -24,6 +24,11 @@ status_t gimbal_t::_init()
 
 void gimbal_t::_update_feedback()
 {
+    ins_drv_t *ins = ins_drv_t::get_instance();
+    ins->get_rads_b(&yaw, &pitch, &roll);
+
+    my_pitch = pitch;
+    
     _ctx.gimbal_config.motor.pitch->update_feedback();
     _ctx.gimbal_config.motor.yaw->update_feedback();
 
@@ -42,6 +47,8 @@ void gimbal_t::_update_feedback()
 
     _ctx.data.current_yaw_radps =
         _ctx.gimbal_config.motor.yaw->get_current_rotate();
+
+        my_pitchps = _ctx.data.current_pitch_radps;
 }
 
 void gimbal_t::_gimbal_mec_control(gimbal_context_t *ctx)
@@ -72,26 +79,28 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
 
     // pitch轴位置环
     ctx->data.target_pitch_radps =
-        -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
+        ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, pitch);
 
     // pitch轴速度环
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
-            ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) -
-        gravity_offset * cos(pitch); // 重力补偿
+            ctx->data.target_pitch_radps, -ctx->data.current_pitch_radps) 
+            + 1.8f * cos(pitch); // 重力补偿
 
     // yaw轴位置环
-    ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
-        ctx->data.target_yaw_rad, yaw);
+    // ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
+    //     ctx->data.target_yaw_rad, yaw);
 
     // yaw轴速度环
-    ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
-        ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+    // ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
+    //     ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+    ctx->data.out_yaw_torque = 0;
 }
 
 void gimbal_t::_send_motor_command(gimbal_context_t *ctx)
 {
+    my_torque = ctx->data.out_pitch_torque;
     ctx->gimbal_config.motor.pitch->send_torque(ctx->data.out_pitch_torque);
     ctx->gimbal_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
 }

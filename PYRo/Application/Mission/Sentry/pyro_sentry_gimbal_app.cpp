@@ -11,13 +11,18 @@
 #include "pyro_crc.h"
 #include "pyro_uart_message.h"
 
+uint8_t if_aim = 0;
+float t_aim;
+
 using namespace pyro;
 
-float bullet_speed;
+float aim_yaw, aim_pitch;
+
 uint8_t game_started;
-uint8_t center_state;
 bool autoaim = false;
 uint8_t enemy_color{};
+uint8_t in_aim{};
+bool scan{};
 
 gimbal_t *gimbal_ptr                       = nullptr;
 gimbal_cmd_t *gimbal_cmd_ptr               = nullptr;
@@ -42,11 +47,11 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.yaw_max_rad       = 0.70f;
     gimbal_cfg.yaw_min_rad       = -0.70f;
 
-    gimbal_cfg.pid.pitch_pos_pid = new pid_t(90.0f, 0.001f, 1.8f, 0.5f, 20);
-    gimbal_cfg.pid.pitch_spd_pid = new pid_t(1.1f, 0.0f, 0.0f, 0.5f, 6.0f);
+    gimbal_cfg.pid.pitch_pos_pid = new pid_t(150.0f, 0, 1.5f, 0.5f, 80);
+    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.5f, 0.0f, 0.001f, 0.5f, 6.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-            new pyro::pid_t(40.0f, 0.0f, 0.0f, 0, 35.0f);
+            new pyro::pid_t(5.0f, 0.0f, 0.0f, 0, 35.0f);
     gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.6f, 0.0f, 0.0f, 0.2f, 3);
 
     gimbal_cfg.yaw_offset      = -1.10293245f;
@@ -57,9 +62,14 @@ extern "C"
     void aim2mcu_process()
     {
         gimbal_cmd_ptr->is_aiming         = aim2mcu_msg.data.fire;
-        auto_fire                         = aim2mcu_msg.data.fire;
-        gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
-        gimbal_cmd_ptr->aim_imu_pitch_rad = aim2mcu_msg.data.shoot_pitch;
+        if_aim = aim2mcu_msg.data.fire;
+        auto_fire                         = false;
+        if(abs(aim2mcu_msg.data.shoot_yaw) <= PI)
+            gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
+        if(abs(aim2mcu_msg.data.shoot_pitch) <= PI)
+             gimbal_cmd_ptr->aim_imu_pitch_rad = aim2mcu_msg.data.shoot_pitch;
+        aim_yaw = aim2mcu_msg.data.shoot_yaw;
+        aim_pitch = aim2mcu_msg.data.shoot_pitch;
     }
 
     void gimbal_rc2cmd(void const *rc_ctrl)
@@ -75,6 +85,7 @@ extern "C"
             gimbal_cmd_ptr->target_delta_pitch_rad = 0.0f;
             gimbal_cmd_ptr->target_delta_yaw_rad   = 0.0f;
             autoaim                                = false;
+            auto_fire = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
         {
@@ -83,12 +94,13 @@ extern "C"
             gimbal_cmd_ptr->target_delta_pitch_rad = p_ctrl->rc.ch_ry * 0.005f;
             gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
             autoaim                                = false;
+            auto_fire = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            autoaim                     = false;
+            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
+            autoaim                     = true;
             aim2mcu_process();
         }
     }
@@ -147,8 +159,8 @@ extern "C"
         can_tx_drv_t::add_data(0x123, 8, wz);
         can_tx_drv_t::add_data(0x123, 8, delta_yaw);
         can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(follow_yaw));
-        can_tx_drv_t::add_data(0x123, 7, static_cast<uint8_t>(active));
-        can_tx_drv_t::add_data(0x123, 8, static_cast<uint8_t>(nav_enable));
+        can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(active));
+        can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(nav_enable));
 
         can_tx_drv_t::send(0x123, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
@@ -161,9 +173,11 @@ extern "C"
         uint8_t bullet_speed_int = raw_data[0];
         uint8_t bullet_speed_dec = raw_data[1];
         bullet_speed             = bullet_speed_int + bullet_speed_dec / 100.0f;
-        enemy_color              = raw_data[2] & 0x01;
-        game_started             = raw_data[3] & 0x01;
-        center_state             = raw_data[4] & 0x03;
+        power_heat = raw_data[2];
+        in_aim = raw_data[3];
+        game_started = raw_data[4] & 0x01;
+        enemy_color = raw_data[4] >> 1 & 0x01;
+        scan = raw_data[4] >> 2 & 0x01;
     }
 
     void mcu2aim_process()
@@ -180,7 +194,7 @@ extern "C"
         mcu2aim_msg.data.self_v_angle     = 0;
         mcu2aim_msg.data.curr_speed       = bullet_speed;
         mcu2aim_msg.data.shoot_delay      = 0;
-        mcu2aim_msg.data.state            = 0;
+        mcu2aim_msg.data.state            = in_aim;
         mcu2aim_msg.data.stop_record      = 0;
         mcu2aim_msg.data.autoaim          = autoaim;
         mcu2aim_msg.data.enemy_color      = enemy_color;

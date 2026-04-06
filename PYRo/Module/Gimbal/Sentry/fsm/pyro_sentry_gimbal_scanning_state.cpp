@@ -34,9 +34,13 @@ void gimbal_t::fsm_active_t::state_scanning_t::execute(owner *owner)
     if (owner->_ctx.cmd->is_aiming)
     {
         // -------------不知道这样切换状态行不行----------------
-        owner->_main_fsm.change_state(&owner->_active_state._tracking_state);
+        state_t* target_state = &(owner->_active_state._tracking_state);
+        this->request_switch(target_state);
         return;
     }
+
+    owner->_ctx.gimbal_config.motor.yaw->enable();
+    owner->_ctx.gimbal_config.motor.pitch->enable();
 
     if (pitch_direction)
     {

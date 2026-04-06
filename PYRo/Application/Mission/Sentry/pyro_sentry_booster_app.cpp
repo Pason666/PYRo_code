@@ -54,39 +54,43 @@ extern "C"
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state ||
-            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state ||
-            auto_fire)
-        {
-            booster_cmd_ptr->is_fric_on = true;
-
-            // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
-            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
-                auto_fire)
-            {
-                down_time++;
-                if (down_time > 200)
+        if(dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state ||
+           dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+            {    
+                if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
+                    dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
+                    auto_fire)
                 {
-                    booster_cmd_ptr->continue_shoot = true;
-                    booster_cmd_ptr->single_shoot   = false;
-                    // 注意：连发模式下，不要触发单发，防止逻辑冲突
+                    booster_cmd_ptr->is_fric_on = true;
+
+                    // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
+                    if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
+                       auto_fire)
+                    {
+                        down_time++;
+                        if (down_time > 200)
+                        {
+                            booster_cmd_ptr->continue_shoot = true;
+                            booster_cmd_ptr->single_shoot   = false;
+                            // 注意：连发模式下，不要触发单发，防止逻辑冲突
+                        }
+                    }
+                    else
+                    {
+                        // 拨杆不在下方，关闭连发
+                        booster_cmd_ptr->continue_shoot = false;
+                        down_time                       = 0;
+                    }
+                    // 情况 B：检测到边沿信号 (MID -> DOWN) -> 触发一次单发
+                    static float sl_using_time = 0;
+                    if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
+                        p_ctrl->rc.s_l.change_time != sl_using_time)
+                    {
+                        sl_using_time                 = p_ctrl->rc.s_l.change_time;
+                        booster_cmd_ptr->single_shoot = true;
+                    }
                 }
             }
-            else
-            {
-                // 拨杆不在下方，关闭连发
-                booster_cmd_ptr->continue_shoot = false;
-                down_time                       = 0;
-            }
-            // 情况 B：检测到边沿信号 (MID -> DOWN) -> 触发一次单发
-            static float sl_using_time = 0;
-            if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
-                p_ctrl->rc.s_l.change_time != sl_using_time)
-            {
-                sl_using_time                 = p_ctrl->rc.s_l.change_time;
-                booster_cmd_ptr->single_shoot = true;
-            }
-        }
         else
         {
             booster_cmd_ptr->is_fric_on     = false;
@@ -98,14 +102,8 @@ extern "C"
 
     void chassis2booster()
     {
-        std::array<uint8_t, 8> raw_data{};
-        can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data);
-
-        booster_cmd_ptr->current_bullet_mps =
-            raw_data[0] + raw_data[1] / 100.0f;
-        booster_cmd_ptr->ammo_count =
-            static_cast<int16_t>(raw_data[2] << 8 | raw_data[3]);
-        booster_cmd_ptr->power_heat = raw_data[5];
+        booster_cmd_ptr->current_bullet_mps = bullet_speed;
+        booster_cmd_ptr->power_heat = power_heat;
     }
 
     // void speed_control(void)

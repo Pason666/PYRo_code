@@ -15,7 +15,11 @@ void gimbal_t::fsm_active_t::on_enter(owner *owner)
 
 void gimbal_t::fsm_active_t::on_execute(owner *owner)
 {
-    if (gimbal_cmd_t::gimbal_mode_t::SCANNING == owner->_ctx.cmd->gimbal_mode)
+    if(gimbal_cmd_t::gimbal_mode_t::TRACKING == owner->_ctx.cmd->gimbal_mode)
+    {
+        this->change_state(&_tracking_state);
+    }
+    else if (gimbal_cmd_t::gimbal_mode_t::SCANNING == owner->_ctx.cmd->gimbal_mode)
     {
         this->change_state(&_scanning_state);
     }
