@@ -79,23 +79,23 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
 
     // pitch轴位置环
     ctx->data.target_pitch_radps =
-        ctx->gimbal_config.pid.pitch_pos_pid->calculate(
+        -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, pitch);
 
     // pitch轴速度环
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
-            ctx->data.target_pitch_radps, -ctx->data.current_pitch_radps) 
-            + 1.8f * cos(pitch); // 重力补偿
+            ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) 
+            + 0.7f * cos(pitch); // 重力补偿
 
     // yaw轴位置环
-    // ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
-    //     ctx->data.target_yaw_rad, yaw);
+    ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
+        ctx->data.target_yaw_rad, yaw);
 
     // yaw轴速度环
-    // ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
-    //     ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
-    ctx->data.out_yaw_torque = 0;
+    ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(
+        ctx->data.target_yaw_radps, ctx->data.current_yaw_radps);
+    // ctx->data.out_yaw_torque = 0;
 }
 
 void gimbal_t::_send_motor_command(gimbal_context_t *ctx)

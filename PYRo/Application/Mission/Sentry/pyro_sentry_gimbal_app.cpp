@@ -47,12 +47,12 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.yaw_max_rad       = 0.70f;
     gimbal_cfg.yaw_min_rad       = -0.70f;
 
-    gimbal_cfg.pid.pitch_pos_pid = new pid_t(150.0f, 0, 1.5f, 0.5f, 80);
-    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.5f, 0.0f, 0.001f, 0.5f, 6.0f);
+    gimbal_cfg.pid.pitch_pos_pid = new pid_t(25.0f, 0, 0.5f, 0.5f, 12);
+    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.5f, 0.0f, 0.001f, 0.5f, 7.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-            new pyro::pid_t(5.0f, 0.0f, 0.0f, 0, 35.0f);
-    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.6f, 0.0f, 0.0f, 0.2f, 3);
+            new pyro::pid_t(20.0f, 0.0f, 0.0f, 0, 8.0f);
+    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.8f, 0.0f, 0.0f, 0.2f, 3);
 
     gimbal_cfg.yaw_offset      = -1.10293245f;
 }
@@ -66,7 +66,7 @@ extern "C"
         auto_fire                         = false;
         if(abs(aim2mcu_msg.data.shoot_yaw) <= PI)
             gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
-        if(abs(aim2mcu_msg.data.shoot_pitch) <= PI)
+        if(abs(aim2mcu_msg.data.shoot_pitch) <= PI / 2)
              gimbal_cmd_ptr->aim_imu_pitch_rad = aim2mcu_msg.data.shoot_pitch;
         aim_yaw = aim2mcu_msg.data.shoot_yaw;
         aim_pitch = aim2mcu_msg.data.shoot_pitch;
