@@ -49,10 +49,10 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(1.1f, 0.0f, 0.0f, 0.5f, 6.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-        new pid_t(50.0f, 0.0f, 0.8f, 0, 50.0f, 0, 90, 2);
-    gimbal_cfg.pid.yaw_spd_pid = new pid_t(0.85f, 0.0f, 0.0f, 0.2f, 6);
+            new pyro::pid_t(40.0f, 0.0f, 0.0f, 0, 35.0f);
+    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.6f, 0.0f, 0.0f, 0.2f, 3);
 
-    gimbal_cfg.yaw_offset      = 2.05022361f;
+    gimbal_cfg.yaw_offset      = -1.10293245f;
 }
 
 extern "C"

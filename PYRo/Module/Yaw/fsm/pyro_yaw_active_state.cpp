@@ -16,10 +16,7 @@ void yaw_t::fsm_active_t::on_enter(owner *owner)
 
 void yaw_t::fsm_active_t::on_execute(owner *owner)
 {
-    if (owner->_ctx.cmd->scanning)
-        this->change_state(&_scanning_state);
-    else
-        this->change_state(&_manual_state);
+    this->change_state(&_manual_state);
 
 }
 

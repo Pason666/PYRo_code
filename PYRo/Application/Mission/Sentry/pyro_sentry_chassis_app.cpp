@@ -149,7 +149,7 @@ extern "C"
                 rud_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
                 yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
             }
-            yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[5]);
+            yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[4] >> 2 & 0x01);
             rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
             if (cmd_base_t::mode_t::PASSIVE == yaw_cmd_ptr->mode)
             {
@@ -177,11 +177,11 @@ extern "C"
                 rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
                 rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
                 rud_cmd_ptr->wz                   = 10;
-                yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.wz;
+                yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.yaw;
             }
 
-            yaw_cmd_ptr->scanning =
-                static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
+            // yaw_cmd_ptr->scanning =
+            //     static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
 
             rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
         }
@@ -218,27 +218,21 @@ extern "C"
         else
             enemy_color = 0;
         bool game_started   = referee_data.game_status.game_progress == 4;
-        uint8_t rmul_center = referee_data.field_event.central_buff_point;
         uint8_t power_heat =
             referee_data.power_heat.shooter_17mm_barrel_heat / 10;
-        heat = power_heat;
+        uint8_t in_aim = nav2mcu_msg.data.in_aim;
+        bool scan     = nav2mcu_msg.data.scan;
 
         can_tx_drv_t::clear(0x102);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
-        can_tx_drv_t::add_data(0x102, 8, enemy_color);
-        can_tx_drv_t::add_data(0x102, 8, game_started);
-        can_tx_drv_t::add_data(0x102, 8, rmul_center);
         can_tx_drv_t::add_data(0x102, 8, power_heat);
+        can_tx_drv_t::add_data(0x102, 8, in_aim);
+        can_tx_drv_t::add_data(0x102, 1, game_started);
+        can_tx_drv_t::add_data(0x102, 1, enemy_color);
+        can_tx_drv_t::add_data(0x102, 1, scan);
         can_tx_drv_t::send(0x102, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
-
-        // const auto ammo_count_high =
-        //     static_cast<uint8_t>(ammo_count >> 8 & 0xFF);
-        // const auto ammo_count_low = static_cast<uint8_t>(ammo_count & 0xFF);
-        // can_tx_drv_t::add_data(0x102, 8, ammo_count_high); // 先发高字节
-        // can_tx_drv_t::add_data(0x102, 8, ammo_count_low);  // 后发低字节
-        // can_tx_drv_t::add_data(0x102, 8, power_heat);
     }
 
     void mcu2nav_process()
