@@ -172,7 +172,8 @@ extern "C"
             {
                 rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
                 rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
-                rud_cmd_ptr->wz                   = 10;
+                rud_cmd_ptr->wz                   = nav2mcu_msg.data.wz;
+                // rud_cmd_ptr->wz                   = 10;
                 yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.yaw;
             }
 

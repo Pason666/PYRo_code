@@ -112,13 +112,6 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
 
     struct fsm_active_t : public fsm_t<owner>
     {
-        struct state_scanning_t : public state_t<owner>
-        {
-            void enter(owner *owner) override;
-            void execute(owner *owner) override;
-            void exit(owner *owner) override;
-        };
-
         struct state_manual_t : public state_t<owner>
         {
             void enter(owner *owner) override;
@@ -131,7 +124,6 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
         void on_exit(owner *owner) override;
 
       private:
-        state_scanning_t _scanning_state;
         state_manual_t _manual_state;
     };
 
