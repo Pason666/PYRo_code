@@ -1,4 +1,3 @@
-#include "pyro_com_cantx.h"
 #include "pyro_core_config.h"
 #if BOARD_ID == GIMBAL_ID
 
@@ -11,8 +10,6 @@
 #include "pyro_uart_comm.h"
 #include "pyro_crc.h"
 #include "pyro_uart_message.h"
-
-uint8_t a;
 
 using namespace pyro;
 
@@ -108,7 +105,6 @@ extern "C"
         static int8_t delta_yaw = 0;
         static bool active      = false;
         static bool follow_yaw  = false;
-        static bool scanning    = false;
         static bool nav_enable  = false;
 
         can_tx_drv_t::clear(0x123);
@@ -121,7 +117,6 @@ extern "C"
             delta_yaw  = 0;
             follow_yaw = false;
             active     = false;
-            scanning   = false;
             nav_enable = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
@@ -138,28 +133,23 @@ extern "C"
             delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
             follow_yaw = true;
             active     = true;
-            scanning   = false;
             nav_enable = false;
         }
         else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             follow_yaw = false;
             active     = true;
-            scanning   = false;
             nav_enable = true;
         }
-
-        if (active == false)
-            a = 1;
 
         can_tx_drv_t::add_data(0x123, 8, vx);
         can_tx_drv_t::add_data(0x123, 8, vy);
         can_tx_drv_t::add_data(0x123, 8, wz);
         can_tx_drv_t::add_data(0x123, 8, delta_yaw);
         can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(follow_yaw));
-        can_tx_drv_t::add_data(0x123, 1, static_cast<uint8_t>(active));
-        can_tx_drv_t::add_data(0x123, 6, static_cast<uint8_t>(scanning));
+        can_tx_drv_t::add_data(0x123, 7, static_cast<uint8_t>(active));
         can_tx_drv_t::add_data(0x123, 8, static_cast<uint8_t>(nav_enable));
+
         can_tx_drv_t::send(0x123, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
     }

@@ -55,20 +55,14 @@ extern "C"
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
         if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state ||
-            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state ||
+            auto_fire)
         {
-            if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
-                dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
-            {
-                booster_cmd_ptr->is_fric_on = true;
-            }
-            else
-            {
-                booster_cmd_ptr->is_fric_on = false;
-            }
+            booster_cmd_ptr->is_fric_on = true;
 
             // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
-            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
+            if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
+                auto_fire)
             {
                 down_time++;
                 if (down_time > 200)
@@ -76,7 +70,6 @@ extern "C"
                     booster_cmd_ptr->continue_shoot = true;
                     booster_cmd_ptr->single_shoot   = false;
                     // 注意：连发模式下，不要触发单发，防止逻辑冲突
-                    auto_fire                       = false;
                 }
             }
             else
@@ -118,7 +111,8 @@ extern "C"
     // void speed_control(void)
     // {
     //     std::array<uint8_t, 8> raw_data{};
-    //     if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data))
+    //     if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102,
+    //     raw_data))
     //     {
     //         float current_speed = raw_data[0] + raw_data[1] / 100.0f;
     //         if (current_speed < 1.0f)

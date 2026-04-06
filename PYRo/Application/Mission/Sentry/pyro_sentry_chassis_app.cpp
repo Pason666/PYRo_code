@@ -18,10 +18,6 @@
 
 using namespace pyro;
 
-float test_imu;
-float test_buffer_energy;
-float heat;
-
 rud_chassis_t *rud_chassis_ptr             = nullptr;
 yaw_t *yaw_ptr                             = nullptr;
 rud_cmd_t *rud_cmd_ptr                     = nullptr;
@@ -180,9 +176,6 @@ extern "C"
                 yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.yaw;
             }
 
-            // yaw_cmd_ptr->scanning =
-            //     static_cast<bool>(static_cast<int8_t>(raw_data[4] >> 2)) & 0x01;
-
             rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
         }
     }
@@ -211,7 +204,6 @@ extern "C"
             static_cast<uint8_t>(referee_data.shoot.initial_speed -
                                  static_cast<float>(bullet_speed_int)) *
             100;
-        test_buffer_energy = referee_data.power_heat.buffer_energy;
         uint8_t enemy_color;
         if (referee_data.robot_status.robot_id > 100)
             enemy_color = 1;
