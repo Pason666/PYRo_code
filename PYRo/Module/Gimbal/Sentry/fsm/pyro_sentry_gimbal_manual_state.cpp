@@ -36,6 +36,7 @@ void gimbal_t::fsm_active_t::state_manual_t::execute(owner *owner)
     owner->_ctx.data.target_pitch_rad -=
         owner->_ctx.cmd->target_delta_pitch_rad;
     _gimbal_mec_control(&owner->_ctx);
+    // _gimbal_imu_control(&owner->_ctx);
     _send_motor_command(&owner->_ctx);
 }
 

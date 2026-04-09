@@ -1,12 +1,15 @@
 #include "pyro_17mm_booster.h"
 #include <cmath>
 #include "pyro_core_def.h"
+#include "pyro_dwt_drv.h"
+#include "pyro_sentry_gimbal.h"
 
 namespace pyro
 {
 // ================== 基础接口实现 ==================
 shoot_17mm_control_t::shoot_17mm_control_t()
-    : module_base_t("booster", 512, 512, task_base_t::priority_t::HIGH)
+    : module_base_t("booster", 512, 512, task_base_t::priority_t::HIGH),
+      fire_ctrl()
 {
     _ctx.data  = {};
     debug_data = {};
@@ -61,16 +64,22 @@ void shoot_17mm_control_t::_update_feedback()
 
 void shoot_17mm_control_t::_fsm_execute()
 {
-    _ctx.cmd = &_current_cmd;
+    static uint32_t dwtCnt = 0;
+    float dt               = pyro::dwt_drv_t::get_delta_t(&dwtCnt);
+
+    _ctx.cmd               = &_current_cmd;
+
     if (!_ctx.cmd->is_fric_on)
         _main_fsm.change_state(&_state_stop);
     _main_fsm.execute(this);
     if constexpr (FIRE_CHECK)
-    {
-        _fire_check(&_ctx);
-    }
+        _fire_check(instance(), dt);
     else
         _ctx.cmd->fire_licence = true;
+    // --- 弹速补偿 ---
+    // instance()->fire_ctrl.speedCompensator.update(
+    //     instance()->_ctx.cmd->current_bullet_mps);
+    // _speed_compensate(instance());
     _fric_control(this);
     _trig_control(this);
     _send_motor_command(&_ctx);
@@ -114,12 +123,39 @@ void shoot_17mm_control_t::_trig_control(shoot_17mm_control_t *ctx)
     }
 }
 
-void shoot_17mm_control_t::_fire_check(booster_ctx_t *ctx)
+void shoot_17mm_control_t::_fire_check(shoot_17mm_control_t *ctx, float dt)
 {
-    if (ctx->cmd->power_heat <= 18)
-        ctx->cmd->fire_licence = true;
-    else
-        ctx->cmd->fire_licence = false;
+    uint32_t nowMs = xTaskGetTickCount();
+
+    // ── 2a. 同步裁判系统 → 热量控制器 ──
+    ctx->fire_ctrl.heatController.syncWithReferee(power_heat, 260, 30, nowMs);
+
+    // ── 2b. 喂弹速补偿器 ──
+    // 移至主循环中
+
+    // ── 2c. 本地冷却推演 ──
+    ctx->fire_ctrl.heatController.tickCooling(dt);
+
+    // ── 2d. 物理发弹检测 (编码器跨越一发跨度 → 注册热量) ──
+    const float RAD_PER_BULLET         = PI / 4.0f;
+    ctx->fire_ctrl.rawTriggerRad       = ctx->_ctx.data.current_trig_rad;
+
+    static float lastShotContinuousRad = ctx->fire_ctrl.rawTriggerRad;
+
+    if (ctx->fire_ctrl.rawTriggerRad - lastShotContinuousRad >= RAD_PER_BULLET)
+    {
+        ctx->fire_ctrl.heatController.recordBulletShot(nowMs);
+        lastShotContinuousRad += RAD_PER_BULLET;
+    }
+}
+
+void shoot_17mm_control_t::_speed_compensate(shoot_17mm_control_t *ctx)
+{
+    float final_firc_speed =
+        ctx->fire_ctrl.speedCompensator.getCompensatedRadPerSec(
+            ctx->_ctx.booster_cfg.target_fric_speed);
+    ctx->_ctx.data.target_fric_radps[0] = final_firc_speed;
+    ctx->_ctx.data.target_fric_radps[1] = final_firc_speed;
 }
 
 void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)

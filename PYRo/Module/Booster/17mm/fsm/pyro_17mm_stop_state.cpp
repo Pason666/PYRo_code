@@ -9,24 +9,25 @@ void shoot_17mm_control_t::state_stop_t::enter(owner *ctx)
     ctx->_ctx.data.target_fric_radps[1] = 0;
     ctx->_ctx.data.fric_pid_active      = true;
 
-    ctx->_ctx.data.trig_mode            = data_ctx_t::trig_mode_e::SPEED;
-    ctx->_ctx.data.target_trig_radps    = 0;
+    ctx->_ctx.data.trig_mode            = data_ctx_t::trig_mode_e::POSITION;
     ctx->_ctx.data.trig_pid_active      = true;
+    ctx->fire_ctrl.isCalibrated         = false;
+    ctx->fire_ctrl.speedCompensator.reset();
 }
 
 void shoot_17mm_control_t::state_stop_t::execute(owner *ctx)
 {
-    if (ctx->_ctx.cmd->is_fric_on)
-    {
-        this->request_switch(&ctx->_state_ready_fric);
-    }
-
     if (std::abs(ctx->_ctx.data.current_fric_radps[0]) < 10 &&
         std::abs(ctx->_ctx.data.current_fric_radps[1]) < 10)
         ctx->_ctx.data.fric_pid_active = false;
 
-    if (std::abs(ctx->_ctx.data.current_trig_radps) < 0.01f)
-        ctx->_ctx.data.trig_pid_active = false;
+    ctx->_ctx.data.target_trig_rad =
+        ctx->_ctx.data.current_trig_rad - ctx->fire_ctrl.triggerOffset;
+
+    if (ctx->_ctx.cmd->is_fric_on)
+    {
+        this->request_switch(&ctx->_state_ready_fric);
+    }
 }
 
 void shoot_17mm_control_t::state_stop_t::exit(owner *ctx)
@@ -36,4 +37,4 @@ void shoot_17mm_control_t::state_stop_t::exit(owner *ctx)
     ctx->_ctx.data.target_trig_radps = 0;
 }
 
-}
+} // namespace pyro

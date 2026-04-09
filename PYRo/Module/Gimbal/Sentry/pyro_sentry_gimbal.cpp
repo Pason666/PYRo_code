@@ -86,7 +86,7 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) 
-            + 0.7f * cos(pitch); // 重力补偿
+            - 0.7f * cos(pitch); // 重力补偿
 
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(

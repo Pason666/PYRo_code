@@ -7,6 +7,8 @@
 #include "pyro_module_base.h"
 #include "pyro_dji_motor_drv.h"
 #include "pyro_17mm_config.h"
+#include "speed_compensater.h"
+#include "heat_controller.h"
 
 #define FIRE_CHECK false
 
@@ -14,9 +16,9 @@ namespace pyro
 {
 struct booster_cmd_t : cmd_base_t
 {
-    bool is_fric_on;            // 摩擦轮是否开启
-    bool single_shoot;          // 触发单发
-    bool continue_shoot;        // 触发连发
+    bool is_fric_on;     // 摩擦轮是否开启
+    bool single_shoot;   // 触发单发
+    bool continue_shoot; // 触发连发
     bool fire_licence{}; // 发射许可，为false时拨弹盘绝对不允许转动
 
     uint16_t ammo_count{};      // 剩余发弹量（裁判系统反馈）
@@ -63,10 +65,41 @@ class shoot_17mm_control_t final
   public:
     shoot_17mm_control_t(const shoot_17mm_control_t &)            = delete;
     shoot_17mm_control_t &operator=(const shoot_17mm_control_t &) = delete;
+    enum class fire_state
+    {
+        Passive,     // 休眠: 摩擦轮停, 拨弹锁位
+        SpinUp,      // 摩擦轮启动中
+        Ready,       // 就绪: 摩擦轮已达速, 等待开火指令
+        CaliReverse, // 校准: 反转寻找机械死区
+        CaliForward, // 校准: 正转回到零点
+        SingleFire,  // 单发: 拨弹盘推进一发
+        BurstFire,   // 连发: 速度环全速连发
+        SafeBurst,   // 安全连发: 位置环逐发受控连发
+    };
+
+    struct fire_ctrl_ctx
+    {
+        // --- 算法组件 ---
+        SpeedCompensator speedCompensator; // 弹速闭环补偿器
+        HeatController heatController;     // 热量管理控制器
+
+        // --- 校准 & 堵转 ---
+        int32_t currentTriggerEcd;
+        float rawTriggerRad;
+        bool isCalibrated         = false; // 是否已完成拨弹盘校准
+        TickType_t stateStartTick = 0;     // 状态进入时刻 (FreeRTOS tick)
+        TickType_t blockStartTick = 0;     // 堵转检测起始时刻 (0=未堵转)
+        fire_state jamSourceState =
+            fire_state::Passive; // 堵转来源状态 (校准后恢复)
+        mutable fire_state targetStateAfterCali =
+            fire_state::Ready; // 校准完成后目标状态 (由 CaliReverse 决定)
+        float triggerOffset;             // 编码器零点偏移 (校准后确定)
+    };
+    fire_ctrl_ctx fire_ctrl;
 
   private:
     shoot_17mm_control_t();
-    ~shoot_17mm_control_t() override    = default;
+    ~shoot_17mm_control_t() override = default;
 
     // --- 基类接口 ---
     status_t _init() override;
@@ -76,15 +109,16 @@ class shoot_17mm_control_t final
     // --- 派生方法 ---
     static void _fric_control(shoot_17mm_control_t *ctx);
     static void _trig_control(shoot_17mm_control_t *ctx);
-    static void _fire_check(booster_ctx_t *ctx);
+    static void _fire_check(shoot_17mm_control_t *ctx, float dt);
+    static void _speed_compensate(shoot_17mm_control_t *ctx);
     static void _send_motor_command(booster_ctx_t *ctx);
 
     struct data_ctx_t
     {
         // 供状态机内部读取的状态变量
-        uint16_t block_time     = 0;
-        bool fric_pid_active    = true;
-        bool trig_pid_active    = true;
+        uint16_t block_time  = 0;
+        bool fric_pid_active = true;
+        bool trig_pid_active = true;
         enum class trig_mode_e
         {
             SPEED,
@@ -157,6 +191,25 @@ class shoot_17mm_control_t final
         void execute(owner *ctx) override;
         void exit(owner *ctx) override;
     };
+    struct state_cali_reverse : public state_t<owner>
+    {
+        void enter(owner *ctx) override;
+        void execute(owner *ctx) override;
+        void exit(owner *ctx) override;
+    };
+    struct state_cali_forward : public state_t<owner>
+    {
+        void enter(owner *ctx) override;
+        void execute(owner *ctx) override;
+        void exit(owner *ctx) override;
+    };
+    struct state_safe_burst : public state_t<owner>
+    {
+        void enter(owner *ctx) override;
+        void execute(owner *ctx) override;
+        void exit(owner *ctx) override;
+    };
+
 
     fsm_t<owner> _main_fsm;
     state_stop_t _state_stop;
@@ -165,6 +218,9 @@ class shoot_17mm_control_t final
     state_single_bullet_t _state_single_bullet;
     state_continue_bullet_t _state_continue_bullet;
     state_done_t _state_done;
+    state_cali_reverse _state_cali_reverse;
+    state_cali_forward _state_cali_forward;
+    state_safe_burst _state_safe_burst;
 };
 
 } // namespace pyro
