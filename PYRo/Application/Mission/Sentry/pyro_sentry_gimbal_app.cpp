@@ -11,10 +11,9 @@
 #include "pyro_crc.h"
 #include "pyro_uart_message.h"
 
-uint8_t if_aim = 0;
-float t_aim;
-
 using namespace pyro;
+
+uint8_t if_aim = 0;
 
 float aim_yaw, aim_pitch;
 
@@ -42,13 +41,13 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.motor.pitch->set_rotate_range(-20, 20);
     gimbal_cfg.motor.pitch->set_torque_range(-10, 10);
 
-    gimbal_cfg.pitch_max_rad     = 0.43f; // 最高的时候
-    gimbal_cfg.pitch_min_rad     = 0.18f; // 最低的时候
+    gimbal_cfg.pitch_max_rad     = -0.11f; // 最高的时候
+    gimbal_cfg.pitch_min_rad     = -0.34f; // 最低的时候
     gimbal_cfg.yaw_max_rad       = 0.70f;
     gimbal_cfg.yaw_min_rad       = -0.70f;
 
-    gimbal_cfg.pid.pitch_pos_pid = new pid_t(25.0f, 0, 0.5f, 0.5f, 12);
-    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.5f, 0.0f, 0.001f, 0.5f, 7.0f);
+    gimbal_cfg.pid.pitch_pos_pid = new pid_t(30.0f, 0.08f, 0.2f, 0.8f, 12);
+    gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.6f, 0.0f, 0.001f, 0.5f, 7.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
             new pyro::pid_t(20.0f, 0.0f, 0.0f, 0, 8.0f);

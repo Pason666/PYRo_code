@@ -18,6 +18,8 @@
 
 using namespace pyro;
 
+float test_imu_rad, test_imu_radps;
+
 rud_chassis_t *rud_chassis_ptr             = nullptr;
 yaw_t *yaw_ptr                             = nullptr;
 rud_cmd_t *rud_cmd_ptr                     = nullptr;
@@ -120,12 +122,12 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw = new dm_motor_drv_t(0x11, 0x12, can_hub_t::can2);
     yaw_cfg.motor.yaw->set_position_range(-PI, PI);
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
-    yaw_cfg.motor.yaw->set_torque_range(-10, 10);
+    yaw_cfg.motor.yaw->set_torque_range(-12.5, 12.5);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(28, 0, 2, 1, 40);
-    yaw_cfg.pid.yaw_spd_pid = new pid_t(1.3, 0, 0, 2, 7);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(28, 0, 1.5, 1, 40);
+    yaw_cfg.pid.yaw_spd_pid = new pid_t(1.3, 0, 0, 2, 12);
 
-    yaw_cfg.yaw_offset      = 0.509001732f;
+    yaw_cfg.yaw_offset      = 2.63172841f;
 }
 
 extern "C"
@@ -186,10 +188,16 @@ extern "C"
         std::array<uint8_t, 8> raw_data{};
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x103, raw_data);
         float imu_angle;
+        float imu_radps;
         memcpy(&imu_angle, raw_data.data(), 4);
+        memcpy(&imu_radps, raw_data.data() + 4, 4);
         if (imu_angle == 0)
             return;
         yaw_cmd_ptr->current_yaw_imu_rad = imu_angle / 180 * PI;
+        yaw_cmd_ptr->current_yaw_imu_radps = imu_radps;
+
+        test_imu_rad = yaw_cmd_ptr->current_yaw_imu_rad;
+        test_imu_radps = yaw_cmd_ptr->current_yaw_imu_radps;
     }
 
     void referee_process(const referee_drv_t *referee_drv)

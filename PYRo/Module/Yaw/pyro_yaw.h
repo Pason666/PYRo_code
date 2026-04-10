@@ -19,6 +19,7 @@ struct yaw_cmd_t : cmd_base_t
 {
     float target_yaw_imu_angle;
     float current_yaw_imu_rad;
+    float current_yaw_imu_radps;
     float radar_imu{};
     bool nav_enable{};
 

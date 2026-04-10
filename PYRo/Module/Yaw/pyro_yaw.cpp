@@ -3,6 +3,8 @@
 //
 #include "pyro_yaw.h"
 
+float yaw_test{}, torque_test{}, cspeed{};
+
 namespace pyro
 {
 float yaw{}, pitch{}, roll{};
@@ -46,6 +48,8 @@ void yaw_t::_update_feedback()
         wrap_pi(_ctx.yaw_config.motor.yaw->get_current_position() -
                 _ctx.yaw_config.yaw_offset);
 
+    yaw_test = _ctx.data.current_yaw_angle;
+
     // 这里需要获取底盘imu数据减去大yaw的机械角度得到yaw轴的imu角度
     ins->get_angles_n(&yaw, &pitch, &roll);
     ins->get_gyro_n(&chassis_yaw_radps, &chassis_pitch_radps,
@@ -57,21 +61,23 @@ void yaw_t::_update_feedback()
     _ctx.data.current_yaw_imu_angle =
         wrap_pi(yaw - _ctx.data.current_yaw_angle);
 
-    // yaw电机当前角速度
-    _ctx.data.current_yaw_radps =
-        _ctx.yaw_config.motor.yaw->get_current_rotate();
+    // yaw轴当前角速度（imu角速度）
+    _ctx.data.current_yaw_radps = chassis_yaw_radps;
+
+    // // yaw电机当前角速度（电机角速度）
+    // _ctx.data.current_yaw_radps =
+    //     _ctx.yaw_config.motor.yaw->get_current_rotate();
 }
 
 void yaw_t::_yaw_control(yaw_ctx_t *ctx)
 {
-
-
     ctx->data.out_yaw_torque = ctx->yaw_config.pid.yaw_spd_pid->calculate(
         ctx->data.out_yaw_radps, ctx->data.current_yaw_radps);
 }
 
 void yaw_t::_send_motor_command(yaw_ctx_t *ctx)
 {
+    torque_test = ctx->data.out_yaw_torque;
     ctx->yaw_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
 }
 

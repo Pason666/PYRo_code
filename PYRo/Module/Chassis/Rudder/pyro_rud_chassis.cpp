@@ -1,6 +1,5 @@
 #include "pyro_rud_chassis.h"
 
-
 namespace pyro
 {
 supercap_drv_t::cap_feedback_t test_cap_feedback{};

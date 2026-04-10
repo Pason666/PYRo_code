@@ -1,10 +1,12 @@
 #include "pyro_sentry_gimbal.h"
 float yaw, pitch, roll;
 
+float t_aim_pitch{};
+
 namespace pyro
 {
 
-float aim_yaw, my_pitchps, my_pitch, my_torque;
+float aim_yaw, my_pitchps, my_pitch, my_torque, my_pitch_mec;
 float test_current_pos;
 
 float gravity_offset = 0.7;
@@ -37,6 +39,9 @@ void gimbal_t::_update_feedback()
         _ctx.gimbal_config.motor.pitch->get_current_position();
 
     _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
+
+my_pitch_mec = _ctx.data.current_pitch_rad;
+
     _ctx.data.current_pitch_radps =
         _ctx.gimbal_config.motor.pitch->get_current_rotate();
 
@@ -77,6 +82,8 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     ins_drv_t *ins = ins_drv_t::get_instance();
     ins->get_rads_b(&yaw, &pitch, &roll);
 
+    t_aim_pitch = ctx->data.target_pitch_rad;
+
     // pitch轴位置环
     ctx->data.target_pitch_radps =
         -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
@@ -86,7 +93,7 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     ctx->data.out_pitch_torque =
         ctx->gimbal_config.pid.pitch_spd_pid->calculate(
             ctx->data.target_pitch_radps, ctx->data.current_pitch_radps) 
-            + 0.7f * cos(pitch); // 重力补偿
+            - 0.8f * cos(pitch); // 重力补偿
 
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(

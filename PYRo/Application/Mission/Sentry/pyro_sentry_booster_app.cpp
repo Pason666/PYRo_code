@@ -42,7 +42,7 @@ void booster_config(booster_cfg_t &cfg)
     cfg.pid.trig_spd_pid     = new pid_t(5.0f, 1.5f, 0.0f, 5.0f, 10.0f);
     cfg.pid.bullet_speed_pid = new pid_t(0.01f, 0.0f, 0.00f, 5.00f, 10.0f);
 
-    cfg.target_fric_speed    = 800;
+    cfg.target_fric_speed    = 670;
 }
 
 extern "C"
@@ -90,6 +90,14 @@ extern "C"
                         booster_cmd_ptr->single_shoot = true;
                     }
                 }
+                else
+                {
+                    booster_cmd_ptr->is_fric_on     = false;
+                    booster_cmd_ptr->continue_shoot = false;
+                    booster_cmd_ptr->single_shoot   = false;
+                    down_time                       = 0;
+                }
+                
             }
         else
         {

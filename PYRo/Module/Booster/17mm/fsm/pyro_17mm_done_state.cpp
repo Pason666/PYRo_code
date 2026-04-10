@@ -12,6 +12,11 @@ void shoot_17mm_control_t::state_done_t::enter(owner *ctx)
 }
 void shoot_17mm_control_t::state_done_t::execute(owner *ctx)
 {
+    if (!ctx->_ctx.cmd->is_fric_on)
+    {
+        this->request_switch(&ctx->_state_stop);
+        return;
+    }
     this->request_switch(&ctx->_state_ready_shoot);
 }
 void shoot_17mm_control_t::state_done_t::exit(owner *ctx)
