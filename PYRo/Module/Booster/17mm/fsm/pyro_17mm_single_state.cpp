@@ -21,7 +21,7 @@ void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
         return;
     }
     if (abs(ctx->_ctx.data.current_trig_rad -
-                        ctx->_ctx.data.target_trig_rad) < 0.05f)
+                        ctx->_ctx.data.target_trig_rad) < 0.003f)
     {
         this->request_switch(&ctx->_state_done);
     }

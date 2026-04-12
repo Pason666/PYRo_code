@@ -14,8 +14,11 @@
 #include "pyro_17mm_config.h"
 
 #include <algorithm>
+#include <math.h>  // 方差计算需要
 
 using namespace pyro;
+
+float test_bullet_speed = 0.0f;
 
 shoot_17mm_control_t *booster_ptr     = nullptr;
 booster_cmd_t *booster_cmd_ptr        = nullptr;
@@ -23,88 +26,92 @@ booster_cfg_t *booster_cfg_ptr        = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ptr = nullptr;
 
 uint16_t down_time{};
-float filtered_speed_error          = 0.0f;
-bool first_ball_received            = false;
-static constexpr float FILTER_ALPHA = 0.12f;
+
+// ===================== 核心参数（全线速度，锁死范围）=====================
+static constexpr float WHEEL_RADIUS = 0.03f;
+static constexpr float TARGET_BULLET_SPEED = 20.6f;  // 目标弹速
+// static constexpr float MAX_FRIC_LIN_V = 24.0f;       // 摩擦轮上限
+// static constexpr float MIN_FRIC_LIN_V = 23.0f;       // 摩擦轮下限
+// static constexpr float INIT_FRIC_LIN_V = 23.5f;      // 初始速度
+
+// 方差控制核心参数（专治跳动，最优参数直接用）
+// #define WINDOW_SIZE 20      // 统计最近10帧弹速（平衡响应+稳定）
+// static constexpr float MAX_VARIANCE = 0.1f;  // 方差阈值：超过=数据乱，不调节
+// static constexpr float MAX_ADJUST = 0.003f;   // 每次微调极小量
+// static constexpr float VALID_BULLET_SPEED_MIN = 10.0f;
+
+inline float lin_v_to_radps(float v) { return v / WHEEL_RADIUS; }
+// ====================================================================
+
+// 方差控制：滑动窗口缓存
+// float bullet_buffer[WINDOW_SIZE] = {0};
+// uint8_t buffer_index = 0;
 
 void booster_config(booster_cfg_t &cfg)
 {
-    // 上车版
-    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3,
-                                                  can_hub_t::can2); // 右摩擦轮
-    cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,
-                                                  can_hub_t::can2); // 左摩擦轮
-    cfg.motor.trigger =
-        new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
+    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can1);
+    cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can1);
+    cfg.motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can1);
 
-    // 小发射测试版
-    // cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1,
-    //                                               can_hub_t::can2); // 右摩擦轮
-    // cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,
-    //                                               can_hub_t::can2); // 左摩擦轮
-    // cfg.motor.trigger =
-    //     new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can2);
+    // cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can2);
+    // cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
+    // cfg.motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can2);
 
-    cfg.pid.fric_pid[0]      = new pid_t(0.9f, 0.0f, 0.0f, 0.8f, 20.0f);
-    cfg.pid.fric_pid[1]      = new pid_t(0.9f, 0.0f, 0.0f, 0.8f, 20.0f);
+    // 原有PID不变
+    cfg.pid.fric_pid[0]      = new pid_t(0.45f, 0.0f, 0.0f, 0.8f, 20.0f);
+    cfg.pid.fric_pid[1]      = new pid_t(0.45f, 0.0f, 0.0f, 0.8f, 20.0f);
     cfg.pid.trig_pos_pid     = new pid_t(1000.0f, 0.0f, 0.0f, 100.0f, 1000.0f);
-    cfg.pid.trig_spd_pid     = new pid_t(5.0f, 1.5f, 0.0f, 5.0f, 10.0f);
-    cfg.pid.bullet_speed_pid = new pid_t(0.01f, 0.0f, 0.00f, 5.00f, 10.0f);
+    cfg.pid.trig_spd_pid     = new pid_t(3, 0.0f, 0.0f, 5.0f, 10.0f);
+    
+    // 方差闭环PID：极小P，无积分微分，极致稳定
+    // cfg.pid.bullet_speed_pid = new pid_t(0.001f, 0.0f, 0.0f, MAX_ADJUST, MAX_ADJUST);
 
-    cfg.target_fric_speed    = 670;
+    cfg.target_fric_speed = lin_v_to_radps(TARGET_BULLET_SPEED);
 }
 
 extern "C"
 {
     void booster_rc2cmd(void const *rc_ctrl)
     {
-        read_scope_lock lock(
-            rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
-        static auto *p_ctrl =
-            static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
+        read_scope_lock lock(rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
+        static auto *p_ctrl = static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state ||
-            dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state || dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
         {
             if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
-                dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
-                auto_fire)
+                dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
             {
                 booster_cmd_ptr->is_fric_on = true;
 
-                    // 情况 A：拨杆保持在下方 (SW_DOWN) -> 连发模式
-                    if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state ||
-                       auto_fire)
+                if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
+                {
+                    down_time++;
+                    if (down_time > 800)
                     {
-                        down_time++;
-                        if (down_time > 800)
-                        {
-                            booster_cmd_ptr->continue_shoot = true;
-                            booster_cmd_ptr->single_shoot   = false;
-                            // 注意：连发模式下，不要触发单发，防止逻辑冲突
-                        }
-                    }
-                    else
-                    {
-                        // 拨杆不在下方，关闭连发
-                        booster_cmd_ptr->continue_shoot = false;
-                        down_time                       = 0;
-                    }
-                    // 情况 B：检测到边沿信号 (MID -> DOWN) -> 触发一次单发
-                    static float sl_using_time = 0;
-                    if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
-                        p_ctrl->rc.s_l.change_time != sl_using_time)
-                    {
-                        sl_using_time                 = p_ctrl->rc.s_l.change_time;
-                        booster_cmd_ptr->single_shoot = true;
-                        booster_cmd_ptr->continue_shoot = false;
+                        booster_cmd_ptr->continue_shoot = true;
+                        booster_cmd_ptr->single_shoot   = false;
                     }
                 }
                 else
                 {
-                    booster_cmd_ptr->is_fric_on = false;
+                    booster_cmd_ptr->continue_shoot = false;
+                    down_time                       = 0;
+                }
+
+                static float sl_using_time = 0;
+                if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
+                    p_ctrl->rc.s_l.change_time != sl_using_time)
+                {
+                    sl_using_time                 = p_ctrl->rc.s_l.change_time;
+                    booster_cmd_ptr->single_shoot = true;
+                    booster_cmd_ptr->continue_shoot = false;
                 }
             }
+            else
+            {
+                booster_cmd_ptr->is_fric_on = false;
+            }
+        }
         else
         {
             booster_cmd_ptr->is_fric_on     = false;
@@ -117,61 +124,64 @@ extern "C"
     void chassis2booster()
     {
         booster_cmd_ptr->current_bullet_mps = bullet_speed;
+        test_bullet_speed = bullet_speed;
         booster_cmd_ptr->power_heat         = power_heat;
     }
 
-    void speed_control(void)
-    {
-        float current_speed = bullet_speed;
-        if (current_speed < 1.0f)
-        {
-            current_speed = booster_cfg_ptr->target_fric_speed;
-        }
-        if (booster_cfg_ptr->target_fric_speed > 7.5f)
-        {
-            // --- A. 计算当前瞬时误差 ---
-            float error_now =
-                current_speed - booster_cfg_ptr->target_fric_speed;
+    // ===================== 核心：方差+均值闭环（彻底消除弹速跳动）=====================
+    // void speed_control(void)
+    // {
+    //     static float target_lin_v = INIT_FRIC_LIN_V;
+    //     float real_bullet_speed = bullet_speed;
 
-            // --- B. 一阶低通滤波 (核心逻辑) ---
-            // 公式: Output = Alpha * Input + (1 - Alpha) * Output_Last
-            if (!first_ball_received)
-            {
-                // 第一发弹：直接初始化滤波器
-                filtered_speed_error = error_now;
-                first_ball_received  = true;
-            }
-            else
-            {
-                // 后续发弹：平滑累积误差
-                filtered_speed_error =
-                    FILTER_ALPHA * error_now +
-                    (1 - FILTER_ALPHA) * filtered_speed_error;
-            }
+    //     // 1. 无效弹速直接保持，不调节
+    //     if (real_bullet_speed < VALID_BULLET_SPEED_MIN)
+    //     {
+    //         booster_cfg_ptr->target_fric_speed = lin_v_to_radps(target_lin_v);
+    //         return;
+    //     }
 
-            // --- C. 构造带符号的“类平方误差” ---
-            // 作用：让大误差被更大权重地修正，小误差被抑制
-            float pid_input =
-                filtered_speed_error * std::abs(filtered_speed_error);
+    //     // 2. 弹速存入滑动窗口（统计最近10帧）
+    //     bullet_buffer[buffer_index] = real_bullet_speed;
+    //     buffer_index = (buffer_index + 1) % WINDOW_SIZE;
 
-            // --- D. PID 计算速度增量 ---
-            // 逻辑保持不变：将 pid_input 视为误差，期望将其控制到 0
-            float speed_increment =
-                booster_cfg_ptr->pid.bullet_speed_pid->calculate(0.0f,
-                                                                 pid_input);
+    //     // 3. 计算窗口内弹速的【平均值】+【方差】
+    //     float sum = 0, mean = 0, variance = 0;
+    //     // 求和算均值
+    //     for (uint8_t i = 0; i < WINDOW_SIZE; i++) sum += bullet_buffer[i];
+    //     mean = sum / WINDOW_SIZE;
+    //     // 求方差（判断数据稳定性）
+    //     for (uint8_t i = 0; i < WINDOW_SIZE; i++) variance += powf(bullet_buffer[i] - mean, 2);
+    //     variance /= WINDOW_SIZE;
 
-            // --- E. 执行与限幅 ---
-            booster_cfg_ptr->target_fric_speed += speed_increment;
+    //     // 4. 核心逻辑：方差过大=数据乱跳，直接不调节（根治抖动！）
+    //     if (variance > MAX_VARIANCE)
+    //     {
+    //         booster_cfg_ptr->target_fric_speed = lin_v_to_radps(target_lin_v);
+    //         return;
+    //     }
 
-            constexpr float MAX_FRIC1_MPS = 820.0f;
-            constexpr float MIN_FRIC1_MPS = 790.0f;
+    //     // 5. 数据稳定后，用【均值】计算误差（无视单帧跳动）
+    //     float speed_error = TARGET_BULLET_SPEED - mean;
 
-            // 使用 std::clamp (C++17) 更简洁，若不支持则换回 if-else
-            booster_cfg_ptr->target_fric_speed =
-                std::clamp(booster_cfg_ptr->target_fric_speed, MIN_FRIC1_MPS,
-                           MAX_FRIC1_MPS);
-        }
-    }
+    //     // 6. 死区：小误差不调节，进一步防抖
+    //     if (fabsf(speed_error) < 0.1f)
+    //     {
+    //         booster_cfg_ptr->target_fric_speed = lin_v_to_radps(target_lin_v);
+    //         return;
+    //     }
+
+    //     // 7. 极小量PID调节
+    //     float adjust = booster_cfg_ptr->pid.bullet_speed_pid->calculate(0.0f, speed_error);
+    //     adjust = std::clamp(adjust, -MAX_ADJUST, MAX_ADJUST);
+
+    //     // 8. 严格锁死摩擦轮速度 23.0~24.0
+    //     target_lin_v += adjust;
+    //     target_lin_v = std::clamp(target_lin_v, MIN_FRIC_LIN_V, MAX_FRIC_LIN_V);
+
+    //     // 9. 输出rad/s给电机
+    //     booster_cfg_ptr->target_fric_speed = lin_v_to_radps(target_lin_v);
+    // }
 
     void booster_thread(void *argument)
     {

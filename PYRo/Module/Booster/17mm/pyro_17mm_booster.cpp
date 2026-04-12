@@ -1,9 +1,14 @@
 #include "pyro_17mm_booster.h"
 #include <cmath>
 #include "pyro_core_def.h"
+#include "pyro_sentry_gimbal.h"
+
+float test_fric_speed[2]{0.0f, 0.0f};
 
 namespace pyro
 {
+
+
 // ================== 基础接口实现 ==================
 shoot_17mm_control_t::shoot_17mm_control_t()
     : module_base_t("booster", 512, 512, task_base_t::priority_t::HIGH)
@@ -28,6 +33,8 @@ void shoot_17mm_control_t::_update_feedback()
         _ctx.booster_cfg.motor.fric[0]->get_current_rotate();
     _ctx.data.current_fric_radps[1] =
         _ctx.booster_cfg.motor.fric[1]->get_current_rotate();
+    test_fric_speed[0] = _ctx.data.current_fric_radps[0] + 666.67f;
+    test_fric_speed[1] = -_ctx.data.current_fric_radps[1] + 666.67f;
 
     float current_rotor_rad =
         _ctx.booster_cfg.motor.trigger->get_current_position();

@@ -210,9 +210,9 @@ extern "C"
         const uint8_t bullet_speed_int =
             floor(referee_data.shoot.initial_speed);
         uint8_t bullet_speed_dec =
-            static_cast<uint8_t>(referee_data.shoot.initial_speed -
+            static_cast<uint8_t>((referee_data.shoot.initial_speed -
                                  static_cast<float>(bullet_speed_int)) *
-            100;
+            100);
         uint8_t enemy_color;
         if (referee_data.robot_status.robot_id > 100)
             enemy_color = 1;
