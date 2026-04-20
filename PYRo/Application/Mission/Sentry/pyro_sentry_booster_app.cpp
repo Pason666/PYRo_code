@@ -29,7 +29,7 @@ uint16_t down_time{};
 
 // ===================== 核心参数（全线速度，锁死范围）=====================
 static constexpr float WHEEL_RADIUS = 0.03f;
-static constexpr float TARGET_BULLET_SPEED = 20.6f;  // 目标弹速
+static constexpr float TARGET_BULLET_SPEED = 19.2f;  // 目标弹速
 // static constexpr float MAX_FRIC_LIN_V = 24.0f;       // 摩擦轮上限
 // static constexpr float MIN_FRIC_LIN_V = 23.0f;       // 摩擦轮下限
 // static constexpr float INIT_FRIC_LIN_V = 23.5f;      // 初始速度
@@ -49,19 +49,19 @@ inline float lin_v_to_radps(float v) { return v / WHEEL_RADIUS; }
 
 void booster_config(booster_cfg_t &cfg)
 {
-    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can1);
-    cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can1);
-    cfg.motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can1);
+    // cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can1);
+    // cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can1);
+    // cfg.motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can1);
 
-    // cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can2);
-    // cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
-    // cfg.motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can2);
+    cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2, can_hub_t::can2);
+    cfg.motor.fric[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1, can_hub_t::can2);
+    cfg.motor.trigger = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can2);
 
     // 原有PID不变
     cfg.pid.fric_pid[0]      = new pid_t(0.45f, 0.0f, 0.0f, 0.8f, 20.0f);
     cfg.pid.fric_pid[1]      = new pid_t(0.45f, 0.0f, 0.0f, 0.8f, 20.0f);
-    cfg.pid.trig_pos_pid     = new pid_t(1000.0f, 0.0f, 0.0f, 100.0f, 1000.0f);
-    cfg.pid.trig_spd_pid     = new pid_t(3, 0.0f, 0.0f, 5.0f, 10.0f);
+    cfg.pid.trig_pos_pid     = new pid_t(20.0f, 0.0f, 0.0f, 0.0f, 100.0f);
+    cfg.pid.trig_spd_pid     = new pid_t(1.8, 0.72f, 0.0f, 5.0f, 10.0f);
     
     // 方差闭环PID：极小P，无积分微分，极致稳定
     // cfg.pid.bullet_speed_pid = new pid_t(0.001f, 0.0f, 0.0f, MAX_ADJUST, MAX_ADJUST);

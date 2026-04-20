@@ -4,6 +4,7 @@
 #include "pyro_sentry_gimbal.h"
 
 float test_fric_speed[2]{0.0f, 0.0f};
+float test_trig_pos = 0.0f;
 
 namespace pyro
 {
@@ -60,6 +61,7 @@ void shoot_17mm_control_t::_update_feedback()
         // 更新历史值
         _ctx.data.last_rotor_rad = current_rotor_rad;
     }
+    test_trig_pos = _ctx.data.current_trig_rad;
 
     _ctx.data.current_trig_radps =
         _ctx.booster_cfg.motor.trigger->get_current_rotate() /

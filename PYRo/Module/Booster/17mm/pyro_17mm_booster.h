@@ -101,6 +101,26 @@ class shoot_17mm_control_t final
         float out_trig_radps{};
         float out_trig_torque{};
         float out_fric_torque[2]{};
+
+        // --- 校准相关 ---
+        bool is_calibrated          = false;    // 是否已完成拨弹盘校准 (单发需要)
+        float trigger_offset        = 0.0f;     // 编码器零点偏移 (校准后确定)
+        uint32_t block_start_tick   = 0;        // 堵转检测起始时刻 (0=未堵转)
+        float cali_target_rad       = 0.0f;     // 校准正转目标角度
+
+        // --- 状态枚举 (用于记录堵转来源) ---
+        enum class state_e {
+            STOP,
+            READY_FRIC,
+            READY_SHOOT,
+            SINGLE_BULLET,
+            CONTINUE_BULLET,
+            DONE,
+            CALI_REVERSE,
+            CALI_FORWARD
+        } current_state = state_e::STOP;
+        state_e jam_source_state     = state_e::STOP;    // 堵转来源状态
+        state_e target_state_after_cali = state_e::READY_SHOOT; // 校准完成后目标状态
     };
 
     struct booster_ctx_t
@@ -157,6 +177,19 @@ class shoot_17mm_control_t final
         void execute(owner *ctx) override;
         void exit(owner *ctx) override;
     };
+    // --- 校准状态 ---
+    struct state_cali_reverse_t : public state_t<owner>
+    {
+        void enter(owner *ctx) override;
+        void execute(owner *ctx) override;
+        void exit(owner *ctx) override;
+    };
+    struct state_cali_forward_t : public state_t<owner>
+    {
+        void enter(owner *ctx) override;
+        void execute(owner *ctx) override;
+        void exit(owner *ctx) override;
+    };
 
     fsm_t<owner> _main_fsm;
     state_stop_t _state_stop;
@@ -165,6 +198,8 @@ class shoot_17mm_control_t final
     state_single_bullet_t _state_single_bullet;
     state_continue_bullet_t _state_continue_bullet;
     state_done_t _state_done;
+    state_cali_reverse_t _state_cali_reverse;
+    state_cali_forward_t _state_cali_forward;
 };
 
 } // namespace pyro

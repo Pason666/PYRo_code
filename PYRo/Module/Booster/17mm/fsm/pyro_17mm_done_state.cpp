@@ -6,9 +6,11 @@ namespace pyro
 
 void shoot_17mm_control_t::state_done_t::enter(owner *ctx)
 {
-    ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::SPEED;
-    ctx->_ctx.data.trig_pid_active    = false;
-    ctx->_ctx.data.target_trig_radps  = 0;
+    // --- 位置环锁位, 保持拨弹盘有力 ---
+    ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::POSITION;
+    ctx->_ctx.data.target_trig_rad    = ctx->_ctx.data.current_trig_rad;
+    ctx->_ctx.data.trig_pid_active    = true;
+    ctx->_ctx.data.current_state      = data_ctx_t::state_e::DONE;
 }
 void shoot_17mm_control_t::state_done_t::execute(owner *ctx)
 {

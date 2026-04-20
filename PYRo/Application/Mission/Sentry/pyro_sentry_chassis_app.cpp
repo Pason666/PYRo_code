@@ -149,6 +149,17 @@ extern "C"
             }
             yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[4] >> 2 & 0x01);
             rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
+            if(yaw_cmd_ptr->nav_enable)
+            {
+                if(nav2mcu_msg.data.yaw_align)
+                {
+                    rud_cmd_ptr->follow_yaw = true;
+                }
+                else
+                {
+                    rud_cmd_ptr->follow_yaw = false;
+                }
+            }
             if (cmd_base_t::mode_t::PASSIVE == yaw_cmd_ptr->mode)
             {
                 yaw_cmd_ptr->target_yaw_imu_angle =

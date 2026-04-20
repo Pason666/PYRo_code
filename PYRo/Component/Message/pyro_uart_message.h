@@ -30,6 +30,7 @@ typedef struct
     uint8_t in_aim;
     uint8_t mode; // 1为进攻，2为防御，3为移动
     bool scan{};
+    bool yaw_align{};
 } __attribute__((packed)) nav2mcu_data_t;
 
 typedef struct
