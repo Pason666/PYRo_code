@@ -5,8 +5,8 @@ namespace pyro
 
 void shoot_17mm_control_t::state_ready_fric_t::enter(owner *ctx)
 {
-    ctx->_ctx.data.target_fric_radps[0] = -ctx->_ctx.booster_cfg.target_fric_speed;
-    ctx->_ctx.data.target_fric_radps[1] = ctx->_ctx.booster_cfg.target_fric_speed;
+    ctx->_ctx.data.target_fric_radps[0] = -lin_v_to_radps(TARGET_BULLET_SPEED);
+    ctx->_ctx.data.target_fric_radps[1] = lin_v_to_radps(TARGET_BULLET_SPEED);
     ctx->_ctx.data.fric_pid_active      = true;
     ctx->_ctx.data.current_state        = data_ctx_t::state_e::READY_FRIC;
 }
@@ -20,9 +20,9 @@ void shoot_17mm_control_t::state_ready_fric_t::execute(owner *ctx)
 
     // 检查摩擦轮速度是否达标
     if (std::abs(ctx->_ctx.data.current_fric_radps[0] -
-                 -ctx->_ctx.booster_cfg.target_fric_speed) < 150 &&
+                 -lin_v_to_radps(TARGET_BULLET_SPEED)) < 150 &&
         std::abs(ctx->_ctx.data.current_fric_radps[1] -
-                 ctx->_ctx.booster_cfg.target_fric_speed) < 150)
+                 lin_v_to_radps(TARGET_BULLET_SPEED)) < 150)
     {
         this->request_switch(&ctx->_state_ready_shoot);
     }

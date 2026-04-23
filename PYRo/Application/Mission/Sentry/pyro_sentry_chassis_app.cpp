@@ -69,15 +69,15 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.wheel_pid[2]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
     rud_cfg.pid.wheel_pid[3]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
-    rud_cfg.pid.rud_pos_pid[0] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[1] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[2] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
-    rud_cfg.pid.rud_pos_pid[3] = new pid_t(20.0f, 0.0f, 0.00f, 0.0f, 10.0f);
+    rud_cfg.pid.rud_pos_pid[0] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[1] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[2] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[3] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
 
-    rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
-    rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
-    rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
-    rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
+    rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
+    rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
+    rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
+    rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
 
     rud_cfg.pid.follow_yaw_pid = new pid_t(14.0f, 0.0f, 1.8, 0, 30.0f);
 

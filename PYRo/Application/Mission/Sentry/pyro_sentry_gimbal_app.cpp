@@ -171,7 +171,14 @@ extern "C"
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data);
         uint8_t bullet_speed_int = raw_data[0];
         uint8_t bullet_speed_dec = raw_data[1];
-        bullet_speed             = bullet_speed_int + bullet_speed_dec / 100.0f;
+    
+        // 简单的弹速滤波: 只有当新弹速明显变化时才更新, 避免小幅波动引起的频繁调整
+        if(bullet_speed_int + bullet_speed_dec / 100.0f > 10.0f)
+        {
+            last_bullet_speed = bullet_speed;
+            bullet_speed             = bullet_speed_int + bullet_speed_dec / 100.0f;
+        }
+
         power_heat = raw_data[2];
         in_aim = raw_data[3];
         game_started = raw_data[4] & 0x01;

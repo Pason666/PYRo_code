@@ -121,6 +121,8 @@ class shoot_17mm_control_t final
         } current_state = state_e::STOP;
         state_e jam_source_state     = state_e::STOP;    // 堵转来源状态
         state_e target_state_after_cali = state_e::READY_SHOOT; // 校准完成后目标状态
+
+        float fric_radps_error{}; // 供连发状态记录当前弹速误差
     };
 
     struct booster_ctx_t

@@ -26,6 +26,13 @@ constexpr float CALI_BLOCK_THRESHOLD     = 0.5f;   // 堵转检测速度误差�
 constexpr uint16_t CALI_BLOCK_TIME_MS    = 700;    // 堵转检测时间阈值 (ms)
 constexpr float CALI_DONE_ANGLE_THRESHOLD = 0.01f;  // 校准完成角度误差阈值 (rad)
 
+static constexpr float WHEEL_RADIUS = 0.03f;
+static constexpr float TARGET_BULLET_SPEED = 19.6f;  // 目标弹速
+
+inline float lin_v_to_radps(float v) { return v / WHEEL_RADIUS; }
+
+extern pid_t *bullet_speed_pid;
+
 }
 
 #endif // __PYRO_PYRO_17MM_CONFIG_H__
