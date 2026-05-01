@@ -61,6 +61,7 @@ void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
 
 void shoot_17mm_control_t::state_single_bullet_t::exit(owner *ctx)
 {
+    ctx->_ctx.booster_cfg.pid.trig_spd_pid->clear();
     booster_cmd_ptr->single_shoot = false;
 }
 

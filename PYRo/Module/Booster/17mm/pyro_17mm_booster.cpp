@@ -1,10 +1,13 @@
 #include "pyro_17mm_booster.h"
 #include <cmath>
+#include "FreeRTOS.h"
+#include "task.h"
 #include "pyro_core_def.h"
 #include "pyro_sentry_gimbal.h"
 
 float test_fric_speed[2]{0.0f, 0.0f};
 float test_trig_pos = 0.0f;
+float test_heat = 0.0f; // 热量调试变量
 
 namespace pyro
 {
@@ -73,13 +76,34 @@ void shoot_17mm_control_t::_fsm_execute()
     _ctx.cmd = &_current_cmd;
     if (!_ctx.cmd->is_fric_on)
         _main_fsm.change_state(&_state_stop);
-    _main_fsm.execute(this);
-    if constexpr (FIRE_CHECK)
+
+    uint32_t nowMs = xTaskGetTickCount();
+
+    // 热量控制器: 裁判系统同步
+    _ctx.data.heatController.syncWithReferee(
+        _ctx.cmd->power_heat, _ctx.cmd->heat_limit,
+        _ctx.cmd->cooling_rate, nowMs);
+
+    // 热量控制器: 本地冷却推演 (dt ≈ 1ms 周期)
+    _ctx.data.heatController.tickCooling(0.001f);
+
+    // 物理发弹检测: 拨弹盘角度跨越 PI/4 → 注册一发
+    float delta = _ctx.data.current_trig_rad - _ctx.data.last_shot_trig_rad;
+    if (delta >= PI / 4.0f)
     {
-        _fire_check(&_ctx);
+        _ctx.data.heatController.recordBulletShot(nowMs);
+        _ctx.data.last_shot_trig_rad += PI / 4.0f;
     }
+
+    test_heat = _ctx.data.heatController.getLocalHeat();
+
+    _main_fsm.execute(this);
+
+    if (_ctx.cmd->heat_control_on)
+        _ctx.cmd->fire_licence = _ctx.data.heatController.canShootSingle();
     else
         _ctx.cmd->fire_licence = true;
+
     _fric_control(this);
     _trig_control(this);
     _send_motor_command(&_ctx);
@@ -121,14 +145,6 @@ void shoot_17mm_control_t::_trig_control(shoot_17mm_control_t *ctx)
     {
         ctx->_ctx.data.out_trig_torque = 0.0f;
     }
-}
-
-void shoot_17mm_control_t::_fire_check(booster_ctx_t *ctx)
-{
-    if (ctx->cmd->power_heat <= 18)
-        ctx->cmd->fire_licence = true;
-    else
-        ctx->cmd->fire_licence = false;
 }
 
 void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)

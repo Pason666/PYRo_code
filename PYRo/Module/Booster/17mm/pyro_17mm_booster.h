@@ -7,8 +7,7 @@
 #include "pyro_module_base.h"
 #include "pyro_dji_motor_drv.h"
 #include "pyro_17mm_config.h"
-
-#define FIRE_CHECK false
+#include "pyro_heat_controller.h"
 
 namespace pyro
 {
@@ -17,11 +16,14 @@ struct booster_cmd_t : cmd_base_t
     bool is_fric_on;            // 摩擦轮是否开启
     bool single_shoot;          // 触发单发
     bool continue_shoot;        // 触发连发
-    bool fire_licence{}; // 发射许可，为false时拨弹盘绝对不允许转动
+    bool heat_control_on{true}; // 热量控制开关，false时跳过所有热量限制（调试用）
+    bool fire_licence{};        // 发射许可，为false时拨弹盘绝对不允许转动
 
-    uint16_t ammo_count{};      // 剩余发弹量（裁判系统反馈）
-    uint8_t power_heat{};       // 当前热量（除以10 0~26）
-    float current_bullet_mps{}; // 当前弹速（裁判系统反馈）
+    uint16_t ammo_count{};        // 剩余发弹量（裁判系统反馈）
+    uint16_t power_heat{};        // 当前热量（裁判系统反馈）
+    uint16_t heat_limit{};        // 热量上限（裁判系统反馈）
+    uint16_t cooling_rate{};      // 冷却速率（裁判系统反馈）
+    float current_bullet_mps{};   // 当前弹速（裁判系统反馈）
 
     booster_cmd_t()
         : is_fric_on(false), single_shoot(false), continue_shoot(false)
@@ -76,7 +78,6 @@ class shoot_17mm_control_t final
     // --- 派生方法 ---
     static void _fric_control(shoot_17mm_control_t *ctx);
     static void _trig_control(shoot_17mm_control_t *ctx);
-    static void _fire_check(booster_ctx_t *ctx);
     static void _send_motor_command(booster_ctx_t *ctx);
 
     struct data_ctx_t
@@ -123,6 +124,16 @@ class shoot_17mm_control_t final
         state_e target_state_after_cali = state_e::READY_SHOOT; // 校准完成后目标状态
 
         float fric_radps_error{}; // 供连发状态记录当前弹速误差
+
+        // --- 弹速滑动窗口 ---
+        static constexpr uint8_t BULLET_SPEED_WINDOW_SIZE = 8;
+        float bullet_speed_buffer[BULLET_SPEED_WINDOW_SIZE]{}; // 弹速缓冲区
+        uint8_t bullet_speed_index = 0;                         // 缓冲区索引
+        uint8_t bullet_speed_count = 0;                         // 已记录弹速数量（用于启动阶段）
+
+        // --- 热量控制器 ---
+        HeatController heatController;
+        float last_shot_trig_rad = 0.0f; // 上次发弹时的拨弹盘角度（物理发弹检测）
     };
 
     struct booster_ctx_t

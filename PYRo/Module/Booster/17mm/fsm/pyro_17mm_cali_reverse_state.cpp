@@ -39,14 +39,22 @@ void shoot_17mm_control_t::state_cali_reverse_t::execute(owner *ctx)
         }
         else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >= pdMS_TO_TICKS(CALI_BLOCK_TIME_MS))
         {
-            // 堵转超时, 决定目标状态并切换到正转校准
+            // 堵转超时, 根据热量状态决定目标并切换到正转校准
             switch (ctx->_ctx.data.jam_source_state)
             {
                 case data_ctx_t::state_e::SINGLE_BULLET:
                     ctx->_ctx.data.target_state_after_cali = data_ctx_t::state_e::SINGLE_BULLET;
                     break;
                 case data_ctx_t::state_e::CONTINUE_BULLET:
-                    ctx->_ctx.data.target_state_after_cali = data_ctx_t::state_e::CONTINUE_BULLET;
+                    if (ctx->_ctx.data.heatController.isApproachingHeatLimit())
+                    {
+                        // 热量紧张 → 回到就绪, 不再激进连发
+                        ctx->_ctx.data.target_state_after_cali = data_ctx_t::state_e::READY_SHOOT;
+                    }
+                    else
+                    {
+                        ctx->_ctx.data.target_state_after_cali = data_ctx_t::state_e::CONTINUE_BULLET;
+                    }
                     break;
                 case data_ctx_t::state_e::READY_SHOOT:
                     ctx->_ctx.data.target_state_after_cali = data_ctx_t::state_e::SINGLE_BULLET;

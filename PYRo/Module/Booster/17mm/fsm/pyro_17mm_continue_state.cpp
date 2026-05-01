@@ -9,7 +9,7 @@ float test_fric_target_speed[2]{};
 
 namespace pyro
 {
-pid_t *bullet_speed_pid = new pid_t(5.0f, 0.0f, 0.0f, 5.0f, 8.0f);
+pid_t *bullet_speed_pid = new pid_t(1.5f, 0.0f, 0.0f, 0.0f, 1.0f);
 
 void shoot_17mm_control_t::state_continue_bullet_t::enter(owner *ctx)
 {
@@ -38,20 +38,46 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
         return;
     }
 
-    // --- 弹速闭环 --- 
+    // --- 热控器动态调节安全射频 (关闭时全速) ---
+    if (ctx->_ctx.cmd->heat_control_on)
+        ctx->_ctx.data.target_trig_radps =
+            ctx->_ctx.data.heatController.getSafeBurstRadps(TRIGGER_CONTINUOUS_RADPS);
+    else
+        ctx->_ctx.data.target_trig_radps = TRIGGER_CONTINUOUS_RADPS;
+
+    // --- 弹速闭环（前10发只采集不闭环，满10发后用均值闭环）---
     if(last_bullet_speed != bullet_speed)
     {
-        ctx->_ctx.data.fric_radps_error = bullet_speed_pid->calculate(22.7f, bullet_speed);
-        ctx->_ctx.data.target_fric_radps[0] -= ctx->_ctx.data.fric_radps_error;
-        ctx->_ctx.data.target_fric_radps[1] += ctx->_ctx.data.fric_radps_error;
-        if(abs(ctx->_ctx.data.target_fric_radps[0]) > lin_v_to_radps(TARGET_BULLET_SPEED) * 1.3f)
+        auto &data = ctx->_ctx.data;
+        data.bullet_speed_buffer[data.bullet_speed_index] = bullet_speed;
+        data.bullet_speed_index = (data.bullet_speed_index + 1) % data_ctx_t::BULLET_SPEED_WINDOW_SIZE;
+        if(data.bullet_speed_count < data_ctx_t::BULLET_SPEED_WINDOW_SIZE)
+            data.bullet_speed_count++;
+
+        // 未满10发，只采集不做闭环
+        if(data.bullet_speed_count < data_ctx_t::BULLET_SPEED_WINDOW_SIZE)
+            goto skip_pid;
+
+        // 满10发，计算均值并闭环
         {
-            ctx->_ctx.data.target_fric_radps[0] = -lin_v_to_radps(TARGET_BULLET_SPEED) * 1.3f;
+            float sum = 0.0f;
+            for(uint8_t i = 0; i < data_ctx_t::BULLET_SPEED_WINDOW_SIZE; i++)
+                sum += data.bullet_speed_buffer[i];
+            float avg_speed = sum / data_ctx_t::BULLET_SPEED_WINDOW_SIZE;
+
+            data.fric_radps_error = bullet_speed_pid->calculate(22.7f, avg_speed);
+            data.target_fric_radps[0] -= data.fric_radps_error;
+            data.target_fric_radps[1] += data.fric_radps_error;
+            if(abs(data.target_fric_radps[0]) > lin_v_to_radps(TARGET_BULLET_SPEED) * 1.1f)
+            {
+                data.target_fric_radps[0] = -lin_v_to_radps(TARGET_BULLET_SPEED) * 1.1f;
+            }
+            if(abs(data.target_fric_radps[1]) > lin_v_to_radps(TARGET_BULLET_SPEED) * 1.1f)
+            {
+                data.target_fric_radps[1] = lin_v_to_radps(TARGET_BULLET_SPEED) * 1.1f;
+            }
         }
-        if(abs(ctx->_ctx.data.target_fric_radps[1]) > lin_v_to_radps(TARGET_BULLET_SPEED) * 1.3f)
-        {
-            ctx->_ctx.data.target_fric_radps[1] = lin_v_to_radps(TARGET_BULLET_SPEED) * 1.3f;
-        }
+        skip_pid:;
     }
 
     test_fric_target_speed[0] = ctx->_ctx.data.target_fric_radps[0];
@@ -87,6 +113,12 @@ void shoot_17mm_control_t::state_continue_bullet_t::exit(owner *ctx)
     ctx->_ctx.data.target_fric_radps[0] = -lin_v_to_radps(TARGET_BULLET_SPEED);
     ctx->_ctx.data.target_fric_radps[1] = lin_v_to_radps(TARGET_BULLET_SPEED);
     ctx->_ctx.data.fric_radps_error = 0.0f;
+
+    // --- 清空滑动窗口 ---
+    for(uint8_t i = 0; i < data_ctx_t::BULLET_SPEED_WINDOW_SIZE; i++)
+        ctx->_ctx.data.bullet_speed_buffer[i] = 0.0f;
+    ctx->_ctx.data.bullet_speed_index = 0;
+    ctx->_ctx.data.bullet_speed_count = 0;
 
     // --- 清空速度环积分 ---
     ctx->_ctx.booster_cfg.pid.trig_spd_pid->clear();

@@ -15,7 +15,8 @@ using namespace pyro;
 
 uint8_t if_aim = 0;
 
-float aim_yaw, aim_pitch;
+float aim_yaw, aim_pitch, test_rx;
+static float big_yaw = 0.0f;
 
 uint8_t game_started;
 bool autoaim = false;
@@ -142,6 +143,7 @@ extern "C"
                 vy = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
             wz         = 0;
             delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
+            test_rx = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
             follow_yaw = true;
             active     = true;
             nav_enable = false;
@@ -171,7 +173,7 @@ extern "C"
         can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x102, raw_data);
         uint8_t bullet_speed_int = raw_data[0];
         uint8_t bullet_speed_dec = raw_data[1];
-    
+
         // 简单的弹速滤波: 只有当新弹速明显变化时才更新, 避免小幅波动引起的频繁调整
         if(bullet_speed_int + bullet_speed_dec / 100.0f > 10.0f)
         {
@@ -179,11 +181,21 @@ extern "C"
             bullet_speed             = bullet_speed_int + bullet_speed_dec / 100.0f;
         }
 
-        power_heat = raw_data[2];
-        in_aim = raw_data[3];
-        game_started = raw_data[4] & 0x01;
-        enemy_color = raw_data[4] >> 1 & 0x01;
-        scan = raw_data[4] >> 2 & 0x01;
+        in_aim = raw_data[2];
+        game_started = raw_data[3] & 0x01;
+        enemy_color = raw_data[3] >> 1 & 0x01;
+        scan = raw_data[3] >> 2 & 0x01;
+    }
+
+    void chassis2gimbal_heat()
+    {
+        std::array<uint8_t, 8> raw_data{};
+        can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x105, raw_data);
+        power_heat   = raw_data[0] | (raw_data[1] << 8);
+        heat_limit   = raw_data[2] | (raw_data[3] << 8);
+        cooling_rate = raw_data[4] | (raw_data[5] << 8);
+        int16_t yaw_scaled = raw_data[6] | (raw_data[7] << 8);
+        big_yaw = static_cast<float>(yaw_scaled) / 10000.0f;
     }
 
     void mcu2aim_process()
@@ -204,6 +216,7 @@ extern "C"
         mcu2aim_msg.data.stop_record      = 0;
         mcu2aim_msg.data.autoaim          = autoaim;
         mcu2aim_msg.data.enemy_color      = enemy_color;
+        mcu2aim_msg.data.big_yaw          = big_yaw;
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2aim_msg),
                                sizeof(mcu2aim_msg) - 1);
         comm->write(mcu2aim_msg);
@@ -217,6 +230,7 @@ extern "C"
             chassis_rc2cmd(rc_ctrl_ptr);
             gimbal_rc2cmd(rc_ctrl_ptr);
             chassis2gimbal();
+            chassis2gimbal_heat();
             mcu2aim_process();
             gimbal_ptr->set_command(*gimbal_cmd_ptr);
             vTaskDelay(1);

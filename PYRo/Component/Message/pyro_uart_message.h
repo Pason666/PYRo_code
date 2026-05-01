@@ -59,6 +59,7 @@ typedef struct
     uint8_t stop_record : 1;
     uint8_t autoaim     : 1;
     uint8_t enemy_color : 1;
+    float big_yaw;
 } __attribute__((packed)) mcu2aim_data_t;
 
 typedef struct

@@ -12,7 +12,9 @@
 inline uint8_t auto_fire;
 inline float bullet_speed;
 inline float last_bullet_speed;
-inline uint8_t power_heat;
+inline uint16_t power_heat;
+inline uint16_t heat_limit;
+inline uint16_t cooling_rate;
 
 namespace pyro
 {

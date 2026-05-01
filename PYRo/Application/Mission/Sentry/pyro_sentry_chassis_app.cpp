@@ -230,21 +230,41 @@ extern "C"
         else
             enemy_color = 0;
         bool game_started   = referee_data.game_status.game_progress == 4;
-        uint8_t power_heat =
-            referee_data.power_heat.shooter_17mm_barrel_heat / 10;
         uint8_t in_aim = nav2mcu_msg.data.in_aim;
         bool scan     = nav2mcu_msg.data.scan;
 
         can_tx_drv_t::clear(0x102);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_int);
         can_tx_drv_t::add_data(0x102, 8, bullet_speed_dec);
-        can_tx_drv_t::add_data(0x102, 8, power_heat);
         can_tx_drv_t::add_data(0x102, 8, in_aim);
         can_tx_drv_t::add_data(0x102, 1, game_started);
         can_tx_drv_t::add_data(0x102, 1, enemy_color);
         can_tx_drv_t::add_data(0x102, 1, scan);
         can_tx_drv_t::send(0x102, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
+
+        // 新帧: 热量控制数据
+        uint16_t raw_heat =
+            referee_data.power_heat.shooter_17mm_barrel_heat;
+        uint16_t heat_limit =
+            referee_data.robot_status.shooter_barrel_heat_limit;
+        uint16_t cooling_rate =
+            referee_data.robot_status.shooter_barrel_cooling_value;
+
+        int16_t big_yaw_scaled = static_cast<int16_t>(
+            yaw_cmd_ptr->current_yaw_imu_rad * 10000.0f);
+
+        can_tx_drv_t::clear(0x105);
+        can_tx_drv_t::add_data(0x105, 8, raw_heat & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, (raw_heat >> 8) & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, heat_limit & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, (heat_limit >> 8) & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, cooling_rate & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, (cooling_rate >> 8) & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, big_yaw_scaled & 0xFF);
+        can_tx_drv_t::add_data(0x105, 8, (big_yaw_scaled >> 8) & 0xFF);
+        can_tx_drv_t::send(0x105, can_hub_t::get_instance()->hub_get_can_obj(
+                                       can_hub_t::which_can::can3));
     }
 
     void mcu2nav_process()

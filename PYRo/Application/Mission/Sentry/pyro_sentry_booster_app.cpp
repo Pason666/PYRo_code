@@ -40,8 +40,8 @@ void booster_config(booster_cfg_t &cfg)
     // 原有PID不变
     cfg.pid.fric_pid[0]      = new pid_t(0.45f, 0.0f, 0.0f, 0.8f, 20.0f);
     cfg.pid.fric_pid[1]      = new pid_t(0.45f, 0.0f, 0.0f, 0.8f, 20.0f);
-    cfg.pid.trig_pos_pid     = new pid_t(20.0f, 0.0f, 0.0f, 0.0f, 100.0f);
-    cfg.pid.trig_spd_pid     = new pid_t(1.8, 0.72f, 0.0f, 5.0f, 10.0f);
+    cfg.pid.trig_pos_pid     = new pid_t(40.0f, 0.0f, 0.0f, 5.0f, 27.0f);
+    cfg.pid.trig_spd_pid     = new pid_t(2.1f, 0.02f, 0.0f, 5.0f, 10.0f);
 }
 
 extern "C"
@@ -101,6 +101,8 @@ extern "C"
         booster_cmd_ptr->current_bullet_mps = bullet_speed;
         test_bullet_speed = bullet_speed;
         booster_cmd_ptr->power_heat         = power_heat;
+        booster_cmd_ptr->heat_limit         = heat_limit;
+        booster_cmd_ptr->cooling_rate       = cooling_rate;
     }
 
     // ===================== 核心：方差+均值闭环（彻底消除弹速跳动）=====================
@@ -173,6 +175,7 @@ extern "C"
     status_t sentry_booster_init(void *argument)
     {
         can_rx_drv_t::subscribe(can_hub_t::which_can::can3, 0x102);
+        can_rx_drv_t::subscribe(can_hub_t::which_can::can3, 0x105);
         booster_cmd_ptr = new booster_cmd_t();
         booster_cfg_ptr = new booster_cfg_t();
 
