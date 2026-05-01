@@ -2,6 +2,7 @@
 // Created by pason on 2026/2/2.
 //
 #include "pyro_yaw.h"
+#include "pyro_referee.h"
 
 float yaw_test{}, torque_test{}, cspeed{};
 
@@ -81,14 +82,58 @@ void yaw_t::_send_motor_command(yaw_ctx_t *ctx)
     ctx->yaw_config.motor.yaw->send_torque(ctx->data.out_yaw_torque);
 }
 
+void yaw_t::_update_respawn_state()
+{
+    const uint16_t current_hp =
+        referee_drv_t::get_instance()->get_data().robot_status.current_hp;
+
+    if (!_hp_sample_valid)
+    {
+        _last_current_hp   = current_hp;
+        _hp_sample_valid   = true;
+        return;
+    }
+
+    if (_last_current_hp == 0 && current_hp != 0)
+    {
+        _respawn_recovery_pending = true;
+        _respawn_recovery_start_tick = xTaskGetTickCount();
+    }
+
+    _last_current_hp = current_hp;
+}
+
+void yaw_t::_try_recover_motor()
+{
+    if (_respawn_recovery_pending &&
+        (xTaskGetTickCount() - _respawn_recovery_start_tick) <
+            pdMS_TO_TICKS(RESPAWN_DELAY_MS))
+    {
+        return;
+    }
+
+    if (dm_motor_drv_t::ok != _ctx.yaw_config.motor.yaw->get_error_code())
+    {
+        _ctx.yaw_config.motor.yaw->clear_error();
+    }
+    _ctx.yaw_config.motor.yaw->enable();
+    _respawn_recovery_pending = false;
+}
+
 void yaw_t::_fsm_execute()
 {
     _ctx.cmd = &_current_cmd;
+    _update_respawn_state();
 
     if (cmd_base_t::mode_t::PASSIVE == _ctx.cmd->mode)
         _main_fsm.change_state(&_passive_state);
     else if (cmd_base_t::mode_t::ACTIVE == _ctx.cmd->mode)
         _main_fsm.change_state(&_active_state);
+
+    if (cmd_base_t::mode_t::ACTIVE == _ctx.cmd->mode)
+    {
+        _try_recover_motor();
+    }
 
     _main_fsm.execute(this);
 }

@@ -7,12 +7,7 @@ namespace pyro
 {
 void yaw_t::fsm_active_t::on_enter(owner *owner)
 {
-    if (dm_motor_drv_t::ok !=
-        owner->_ctx.yaw_config.motor.yaw->get_error_code())
-    {
-        owner->_ctx.yaw_config.motor.yaw->clear_error();
-    }
-    owner->_ctx.yaw_config.motor.yaw->enable();
+    owner->_try_recover_motor();
 }
 
 void yaw_t::fsm_active_t::on_execute(owner *owner)

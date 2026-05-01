@@ -18,7 +18,7 @@
 
 using namespace pyro;
 
-float test_imu_rad, test_imu_radps;
+float test_imu_rad, test_imu_radps, test_switch, test_time;
 
 rud_chassis_t *rud_chassis_ptr             = nullptr;
 yaw_t *yaw_ptr                             = nullptr;
@@ -69,14 +69,14 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.wheel_pid[2]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
     rud_cfg.pid.wheel_pid[3]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
-    rud_cfg.pid.rud_pos_pid[0] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
-    rud_cfg.pid.rud_pos_pid[1] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
-    rud_cfg.pid.rud_pos_pid[2] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
-    rud_cfg.pid.rud_pos_pid[3] = new pid_t(8.0f, 0.01f, 0.00f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[0] = new pid_t(15.0f, 0.0f, 0.00001f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[1] = new pid_t(15.0f, 0.0f, 0.0f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[2] = new pid_t(15.0f, 0.0f, 0.0f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[3] = new pid_t(15.0f, 0.0f, 0.00001f, 0.5f, 15.0f);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
-    rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
-    rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
+    rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
+    rud_cfg.pid.rud_spd_pid[2] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[3] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
 
     rud_cfg.pid.follow_yaw_pid = new pid_t(14.0f, 0.0f, 1.8, 0, 30.0f);
@@ -124,7 +124,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-12.5, 12.5);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(28, 0, 1.5, 1, 40);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(35, 0, 1.5, 1, 80);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(1.3, 0, 0, 2, 12);
 
     yaw_cfg.yaw_offset      = 2.63172841f;
@@ -132,67 +132,71 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
 
 extern "C"
 {
-    void gimbal2chassis()
-    {
-        std::array<uint8_t, 8> raw_data{};
-        if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x123, raw_data))
-        {
-            if (raw_data[4] >> 1 & 0x01)
-            {
-                rud_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
-                yaw_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
-            }
-            else
-            {
-                rud_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-                yaw_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-            }
-            yaw_cmd_ptr->nav_enable = static_cast<bool>(raw_data[4] >> 2 & 0x01);
-            rud_cmd_ptr->follow_yaw = static_cast<bool>(raw_data[4] & 0x01);
-            if(yaw_cmd_ptr->nav_enable)
-            {
-                if(nav2mcu_msg.data.yaw_align)
-                {
-                    rud_cmd_ptr->follow_yaw = true;
-                }
-                else
-                {
-                    rud_cmd_ptr->follow_yaw = false;
-                }
-            }
-            if (cmd_base_t::mode_t::PASSIVE == yaw_cmd_ptr->mode)
-            {
-                yaw_cmd_ptr->target_yaw_imu_angle =
-                    yaw_cmd_ptr->current_yaw_imu_rad;
-            }
-            if (yaw_cmd_ptr->nav_enable == false)
-            {
-                rud_cmd_ptr->vx =
-                    2 * static_cast<float>(static_cast<int8_t>(raw_data[0])) /
-                    127.0f;
-                rud_cmd_ptr->vy =
-                    2 * static_cast<float>(static_cast<int8_t>(raw_data[1])) /
-                    127.0f;
-                rud_cmd_ptr->wz =
-                    static_cast<float>(static_cast<int8_t>(raw_data[2]));
 
-                yaw_cmd_ptr->target_yaw_imu_angle -=
-                    static_cast<float>(static_cast<int8_t>(raw_data[3])) /
-                    127.0f * 0.005f;
-                memset(&nav2mcu_msg, 0, sizeof(nav2mcu_msg));
-            }
-            else
-            {
-                rud_cmd_ptr->vx                   = nav2mcu_msg.data.vx;
-                rud_cmd_ptr->vy                   = nav2mcu_msg.data.vy;
-                rud_cmd_ptr->wz                   = nav2mcu_msg.data.wz;
-                // rud_cmd_ptr->wz                   = 10;
-                yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.yaw;
-            }
+void gimbal2chassis()
+{
+    // ==================== 1. 常量定义（消除魔法数字，便于维护） ====================
+    constexpr auto CAN_CHANNEL = can_hub_t::which_can::can3;
+    constexpr uint32_t CAN_MSG_ID = 0x123;
+    // raw_data[4] 位定义：bit0-底盘跟随Yaw使能 | bit1-主动/被动模式 | bit2-导航使能
+    constexpr uint8_t BIT_FOLLOW_YAW    = 0;  // 底盘跟随Yaw
+    constexpr uint8_t BIT_MODE_ACTIVE    = 1;  // 工作模式(1=ACTIVE,0=PASSIVE)
+    constexpr uint8_t BIT_NAV_ENABLE     = 2;  // 导航功能使能
+    // 数据转换系数
+    constexpr float VEL_SCALE     = 2.0f / 127.0f;  // 速度比例系数
+    constexpr float YAW_ANGLE_SCALE = 0.01f / 127.0f; // Yaw角度微调系数
 
-            rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
-        }
+    // ==================== 2. 接收CAN总线数据 ====================
+    std::array<uint8_t, 8> raw_data{};
+    // 接收失败直接退出，避免无效逻辑
+    if (!can_rx_drv_t::get_data(CAN_CHANNEL, CAN_MSG_ID, raw_data)) {
+        return;
     }
+
+    // ==================== 3. 解析CAN数据状态位（核心状态提取） ====================
+    const bool is_mode_active   = (raw_data[4] >> BIT_MODE_ACTIVE) & 0x01;
+    const bool is_nav_enable    = (raw_data[4] >> BIT_NAV_ENABLE) & 0x01;
+    const bool is_follow_yaw    = raw_data[4] & (1 << BIT_FOLLOW_YAW);
+
+    // ==================== 4. 设置工作模式（底盘/Yaw轴） ====================
+    const auto work_mode = is_mode_active ? cmd_base_t::mode_t::ACTIVE : cmd_base_t::mode_t::PASSIVE;
+    rud_cmd_ptr->mode = work_mode;
+    yaw_cmd_ptr->mode = work_mode;
+
+    // ==================== 5. 设置导航使能 & 底盘跟随Yaw ====================
+    yaw_cmd_ptr->nav_enable = is_nav_enable;
+    rud_cmd_ptr->follow_yaw = is_follow_yaw;
+
+    // ==================== 6. Yaw轴被动模式：锁定目标角度为当前角度 ====================
+    if (yaw_cmd_ptr->mode == cmd_base_t::mode_t::PASSIVE) {
+        yaw_cmd_ptr->target_yaw_imu_angle = yaw_cmd_ptr->current_yaw_imu_rad;
+    }
+
+    // ==================== 7. 分支：导航使能/禁用 → 更新控制量 ====================
+    if (!is_nav_enable) {
+        // 【非导航模式】使用CAN原始数据控制
+        rud_cmd_ptr->vx = static_cast<float>(static_cast<int8_t>(raw_data[0])) * VEL_SCALE;
+        rud_cmd_ptr->vy = static_cast<float>(static_cast<int8_t>(raw_data[1])) * VEL_SCALE;
+        rud_cmd_ptr->wz = static_cast<float>(static_cast<int8_t>(raw_data[2]));
+
+        // Yaw目标角度微调
+        yaw_cmd_ptr->target_yaw_imu_angle -= static_cast<float>(static_cast<int8_t>(raw_data[3])) * YAW_ANGLE_SCALE;
+        test_switch = static_cast<float>(static_cast<int8_t>(raw_data[3])) * YAW_ANGLE_SCALE;
+
+        // 清空导航数据
+        nav2mcu_msg = {}; 
+    } else {
+        // 【导航模式】使用导航模块数据控制
+        rud_cmd_ptr->vx = nav2mcu_msg.data.vx;
+        rud_cmd_ptr->vy = nav2mcu_msg.data.vy;
+        rud_cmd_ptr->wz = nav2mcu_msg.data.wz;
+        yaw_cmd_ptr->target_yaw_imu_angle = nav2mcu_msg.data.yaw;
+        rud_cmd_ptr->follow_yaw = nav2mcu_msg.data.yaw_align;
+    }
+
+    // ==================== 8. 计算Yaw轴误差（最终更新） ====================
+    rud_cmd_ptr->yaw_error = yaw_ptr->get_yaw_error();
+}
 
     void imu2chassis()
     {
@@ -286,6 +290,7 @@ extern "C"
 
     void sentry_chassis_thread(void *argument)
     {
+        uint8_t nav_comm_counter = 0; // nav通信分频计数器，500Hz / 5 = 100Hz
         while (true)
         {
             comm->read(nav2mcu_msg);
@@ -296,17 +301,26 @@ extern "C"
             referee_process(referee_drv_t::get_instance());
             referee_drv_t::get_instance()->send_robot_interaction(
                 0x8080, 0x0120, &sentry_cmd, sizeof(sentry_cmd));
-            mcu2nav_process();
+
+            // nav通信频率：100Hz（每5个周期执行一次）
+            if (nav_comm_counter >= 4)
+            {
+                mcu2nav_process();
+                nav_comm_counter = 0;
+            }
+            else
+            {
+                nav_comm_counter++;
+            }
 
             gimbal2chassis();
             chassis2gimbal();
 
             rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
+            test_time ++;
 
-            power_meter->get_data(power_data);
-
-            vTaskDelay(1);
+            vTaskDelay(2);
         }
     }
     uint8_t nav2mcu_msg_header = 0xA5;

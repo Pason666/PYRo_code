@@ -102,6 +102,8 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
     yaw_ctx_t _ctx;
     debug_ctx_t debug_data{};
 
+    static constexpr uint32_t RESPAWN_DELAY_MS = 500;
+
     using owner = yaw_t;
 
     struct state_passive_t : public state_t<owner>
@@ -128,9 +130,17 @@ class yaw_t final : public module_base_t<yaw_t, yaw_cmd_t, yaw_cfg_t>
         state_manual_t _manual_state;
     };
 
+    void _update_respawn_state();
+    void _try_recover_motor();
+
     state_passive_t _passive_state;
     fsm_active_t _active_state;
     fsm_t<owner> _main_fsm;
+
+    uint16_t _last_current_hp{0};
+    bool _hp_sample_valid{false};
+    bool _respawn_recovery_pending{false};
+    TickType_t _respawn_recovery_start_tick{0};
 };
 
 } // namespace pyro

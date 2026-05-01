@@ -121,8 +121,8 @@ struct game_robot_hp_t
 struct event_data_t
 {
     // 补给区占领状态
-    uint32_t non_overlapping_supply_zone : 1; // bit 0: 己方与资源区不重叠的补给区占领状态，1为已占领
-    uint32_t overlapping_supply_zone     : 1; // bit 1: 己方与资源区重叠的补给区占领状态，1为已占领
+    uint32_t supply_zone                 : 1; // bit 0: 己方与补给区占领状态，1为已占领
+    uint32_t reserved_1                  : 1; // bit 1: 保留位
     uint32_t rmul_supply_zone            : 1; // bit 2: 己方补给区的占领状态，1为已占领(仅RMUL适用)
 
     // 能量机关状态
