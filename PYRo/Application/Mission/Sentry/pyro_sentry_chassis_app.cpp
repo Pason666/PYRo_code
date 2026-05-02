@@ -124,8 +124,8 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-12.5, 12.5);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(35, 0, 1.5, 1, 80);
-    yaw_cfg.pid.yaw_spd_pid = new pid_t(1.3, 0, 0, 2, 12);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(20, 0, 1.0, 1, 80);
+    yaw_cfg.pid.yaw_spd_pid = new pid_t(2, 0, 0, 2, 12);
 
     yaw_cfg.yaw_offset      = 2.63172841f;
 }
@@ -290,7 +290,6 @@ void gimbal2chassis()
 
     void sentry_chassis_thread(void *argument)
     {
-        uint8_t nav_comm_counter = 0; // nav通信分频计数器，500Hz / 5 = 100Hz
         while (true)
         {
             comm->read(nav2mcu_msg);
@@ -301,24 +300,13 @@ void gimbal2chassis()
             referee_process(referee_drv_t::get_instance());
             referee_drv_t::get_instance()->send_robot_interaction(
                 0x8080, 0x0120, &sentry_cmd, sizeof(sentry_cmd));
-
-            // nav通信频率：100Hz（每5个周期执行一次）
-            if (nav_comm_counter >= 4)
-            {
-                mcu2nav_process();
-                nav_comm_counter = 0;
-            }
-            else
-            {
-                nav_comm_counter++;
-            }
+            mcu2nav_process();
 
             gimbal2chassis();
             chassis2gimbal();
 
             rud_chassis_ptr->set_command(*rud_cmd_ptr);
             yaw_ptr->set_command(*yaw_cmd_ptr);
-            test_time ++;
 
             vTaskDelay(2);
         }
