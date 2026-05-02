@@ -57,6 +57,11 @@ bool can_msg_buffer_t::get_data(std::array<uint8_t, 8> &data)
     // return false;
 }
 
+TickType_t can_msg_buffer_t::get_last_update_time(void)
+{
+    return _last_update_time;
+}
+
 
 
 can_drv_t::can_drv_t(FDCAN_HandleTypeDef *hfdcan)

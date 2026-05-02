@@ -29,6 +29,7 @@ yaw_cfg_t *yaw_cfg_ptr                     = nullptr;
 uart_comm_t *comm                          = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 referee_data_t referee_data{};
+
 powermeter_drv_t *power_meter;
 powermeter_data power_data;
 
@@ -69,10 +70,10 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.wheel_pid[2]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
     rud_cfg.pid.wheel_pid[3]   = new pid_t(15.0f, 0.0f, 0.00f, 0.00f, 20.0f);
 
-    rud_cfg.pid.rud_pos_pid[0] = new pid_t(15.0f, 0.0f, 0.00001f, 0.5f, 15.0f);
-    rud_cfg.pid.rud_pos_pid[1] = new pid_t(15.0f, 0.0f, 0.0f, 0.5f, 15.0f);
-    rud_cfg.pid.rud_pos_pid[2] = new pid_t(15.0f, 0.0f, 0.0f, 0.5f, 15.0f);
-    rud_cfg.pid.rud_pos_pid[3] = new pid_t(15.0f, 0.0f, 0.00001f, 0.5f, 15.0f);
+    rud_cfg.pid.rud_pos_pid[0] = new pid_t(18.0f, 0.0f, 0.0f, 0.0f, 8.0f, 10.0f, 0.0f, 0);
+    rud_cfg.pid.rud_pos_pid[1] = new pid_t(18.0f, 0.0f, 0.0f, 0.0f, 8.0f, 10.0f, 0.0f, 0);
+    rud_cfg.pid.rud_pos_pid[2] = new pid_t(18.0f, 0.0f, 0.0f, 0.0f, 8.0f, 10.0f, 0.0f, 0);
+    rud_cfg.pid.rud_pos_pid[3] = new pid_t(18.0f, 0.0f, 0.0f, 0.0f, 8.0f, 10.0f, 0.0f, 0);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.3f, 0.0f, 0.00f, 0.0f, 3.0f);
@@ -297,6 +298,10 @@ void gimbal2chassis()
                                    sizeof(nav2mcu_msg));
             imu2chassis();
             sentry_cmd.sentry_posture = nav2mcu_msg.data.mode;
+            if((referee_data.sentry_info.sentry_info >> 19 & 0x01))
+                sentry_cmd.confirm_resurrection = 1;
+            else
+                sentry_cmd.confirm_resurrection = 0;
             referee_process(referee_drv_t::get_instance());
             referee_drv_t::get_instance()->send_robot_interaction(
                 0x8080, 0x0120, &sentry_cmd, sizeof(sentry_cmd));

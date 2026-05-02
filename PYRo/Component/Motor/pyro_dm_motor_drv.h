@@ -10,7 +10,8 @@ class dm_motor_drv_t : public motor_base_t // MIT only
   public:
     enum error_code
     {
-        ok                    = 0x00,
+        disabled              = 0x00,
+        ok                    = 0x01,
         over_votlage          = 0x08,
         under_voltage         = 0x09,
         over_temperature      = 0x0a,
@@ -41,24 +42,24 @@ class dm_motor_drv_t : public motor_base_t // MIT only
     uint32_t _can_id;
     uint32_t _master_id;
 
-    error_code _error_code;
+    error_code _error_code{ok};
 
-    float _mos_temperature;
-    float _coil_temperature;
+    float _mos_temperature{0.0f};
+    float _coil_temperature{0.0f};
 
-    float _min_position;
-    float _max_position;
-    float _min_rotate;
-    float _max_rotate;
+    float _min_position{0.0f};
+    float _max_position{0.0f};
+    float _min_rotate{0.0f};
+    float _max_rotate{0.0f};
     static constexpr float _min_kp = 0.0f;
     static constexpr float _max_kp = 500.0f;
     static constexpr float _min_kd = 0.0f;
     static constexpr float _max_kd = 5.0f;
-    float _min_torque;
-    float _max_torque;
+    float _min_torque{0.0f};
+    float _max_torque{0.0f};
 
-    float _runtime_kp;
-    float _runtime_kd;
+    float _runtime_kp{0.0f};
+    float _runtime_kd{0.0f};
 };
 }; // namespace pyro
 
