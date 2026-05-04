@@ -16,30 +16,13 @@ void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
     static uint32_t last_retry_tick = 0;
     const uint32_t now = xTaskGetTickCount();
 
-    const bool need_recover =
-        (!motor->is_enable()) ||
-        (motor->get_error_code() != dm_motor_drv_t::ok);
-
-    test_a = motor->is_enable();
-    test_b = motor->get_error_code();
-
-    if (need_recover)
+    if (dm_motor_drv_t::ok !=
+        owner->_ctx.yaw_config.motor.yaw->get_error_code())
     {
-        if (now - last_retry_tick >= pdMS_TO_TICKS(50))
-        {
-            last_retry_tick = now;
-
-            if (motor->get_error_code() != dm_motor_drv_t::ok)
-            {
-                motor->clear_error();
-            }
-            if (!motor->is_enable())
-            {
-                motor->enable();
-            }
-        }
-        return;
+        owner->_ctx.yaw_config.motor.yaw->clear_error();
+        owner->_ctx.yaw_config.motor.yaw->enable();
     }
+    else
     {
         float target_yaw = owner->_ctx.cmd->target_yaw_imu_angle;
         float current = owner->_ctx.cmd->current_yaw_imu_rad;

@@ -37,8 +37,8 @@ void shoot_17mm_control_t::_update_feedback()
         _ctx.booster_cfg.motor.fric[0]->get_current_rotate();
     _ctx.data.current_fric_radps[1] =
         _ctx.booster_cfg.motor.fric[1]->get_current_rotate();
-    test_fric_speed[0] = _ctx.data.current_fric_radps[0] + 666.67f;
-    test_fric_speed[1] = -_ctx.data.current_fric_radps[1] + 666.67f;
+    test_fric_speed[0] = _ctx.data.current_fric_radps[0] + 625.67f;
+    test_fric_speed[1] = -_ctx.data.current_fric_radps[1] + 625.67f;
 
     float current_rotor_rad =
         _ctx.booster_cfg.motor.trigger->get_current_position();

@@ -157,16 +157,27 @@ void rud_chassis_t::_kinematics_solve()
 
 void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)
 {
+    // if(ctx->cmd->is_nav_mode)
+    // {
+    //     if(ctx->cmd->follow_yaw)
+    //     {
+    //         ctx->data.target_states.modules[0].angle = 1.5708f;
+    //         ctx->data.target_states.modules[1].angle = 1.5708f;
+    //         ctx->data.target_states.modules[2].angle = 1.5708f;
+    //         ctx->data.target_states.modules[3].angle = 1.5708f;
+    //     }
+    // }
+
     for (int i = 0; i < 4; i++)
     {
-        // 舵机位置环
+        // 舵位置环
 
         const float rud_pos_output =
             ctx->rud_config.pid.rud_pos_pid[i]->calculate(
                 ctx->data.target_states.modules[i].angle,
                 ctx->data.current_states.modules[i].angle);
 
-        // 舵机速度环
+        // 舵速度环
         ctx->data.out_rud_torque[i] =
             ctx->rud_config.pid.rud_spd_pid[i]->calculate(
                 rud_pos_output, ctx->data.current_rud_radps[i]);

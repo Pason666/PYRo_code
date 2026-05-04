@@ -13,7 +13,7 @@ void shoot_17mm_control_t::state_cali_forward_t::enter(owner *ctx)
     ctx->_ctx.data.trig_mode          = data_ctx_t::trig_mode_e::POSITION;
     ctx->_ctx.data.trig_pid_active    = true;
     // 目标角度 = 偏移 + CALI_FORWARD_TARGET_RAD (从死区正转一小段)
-    ctx->_ctx.data.cali_target_rad    = ctx->_ctx.data.trigger_offset + CALI_FORWARD_TARGET_RAD;
+    ctx->_ctx.data.cali_target_rad    = ctx->_ctx.data.current_trig_rad + CALI_FORWARD_TARGET_RAD;
     ctx->_ctx.data.target_trig_rad    = ctx->_ctx.data.cali_target_rad;
     ctx->_ctx.data.current_state      = data_ctx_t::state_e::CALI_FORWARD;
 }

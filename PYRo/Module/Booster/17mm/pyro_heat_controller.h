@@ -12,7 +12,7 @@ class HeatController
   public:
     static constexpr float HEAT_PER_BULLET    = 10.0f;
     static constexpr float BULLETS_PER_CIRCLE = 8.0f;
-    static constexpr float SAFE_MARGIN        = 50.0f;
+    static constexpr float SAFE_MARGIN        = 150.0f;
     static constexpr uint32_t REFEREE_DELAY_MS = 200;
 
     HeatController() = default;
@@ -30,11 +30,11 @@ class HeatController
     void syncWithReferee(uint16_t refHeat, uint16_t refLimit,
                          uint16_t refCoolingRate, uint32_t current_time_ms)
     {
+        if (static_cast<float>(refLimit) <= 0.0f)
+            return;
+
         _heatLimit   = static_cast<float>(refLimit);
         _coolingRate = static_cast<float>(refCoolingRate);
-
-        if (_heatLimit <= 0.0f)
-            return;
 
         if ((current_time_ms - _lastShotTimeMs) > REFEREE_DELAY_MS)
             _localHeat = static_cast<float>(refHeat);
@@ -52,30 +52,46 @@ class HeatController
     {
         if (_heatLimit <= 0.0f)
             return true;
-        return (_localHeat + HEAT_PER_BULLET) <= (_heatLimit - SAFE_MARGIN);
+        return (_localHeat + HEAT_PER_BULLET) <= (_heatLimit - HEAT_PER_BULLET * 2.0f);
     }
 
     [[nodiscard]] bool isApproachingHeatLimit() const
     {
         if (_heatLimit <= 0.0f)
             return false;
-        return (_localHeat + HEAT_PER_BULLET * 2.0f) > (_heatLimit - SAFE_MARGIN);
+        return (_localHeat + HEAT_PER_BULLET * 2.0f) > (_heatLimit);
     }
 
     // 返回拨弹盘目标角速度 (rad/s)。三区间: 安全区=全速, 维持区=冷却速率受限, 临界区=制动
     [[nodiscard]] float getSafeBurstRadps(float maxRadps) const
     {
+        // 1. 无热量限制，直接返回最大转速
         if (_heatLimit <= 0.0f)
             return maxRadps;
-        if (_localHeat + HEAT_PER_BULLET > _heatLimit - SAFE_MARGIN)
-            return -maxRadps * 0.12f;
-        if (_localHeat < _heatLimit - SAFE_MARGIN - HEAT_PER_BULLET * 2.0f)
-            return maxRadps;
 
-        // 维持区: 根据冷却速率计算可持续的每秒发射数, 转换为拨弹盘角速度
-        float sustainBulletsPerSec = (_coolingRate / HEAT_PER_BULLET) * 0.95f;
-        float sustainRadps = sustainBulletsPerSec * (2.0f * 3.14159265f / BULLETS_PER_CIRCLE);
-        return std::min(sustainRadps, maxRadps);
+        // ==================== 肖特基触发器滞回阈值 ====================
+        const float heat_upper = _heatLimit - HEAT_PER_BULLET * 2.0f;  // 过热阈值（切低速）
+        const float heat_lower = _heatLimit - SAFE_MARGIN;            // 安全阈值（切高速）
+        static float last_output = maxRadps; // 上一次的输出（用于滞回区保持）
+        // ============================================================
+
+        // 条件1：热量 ≥ 过热阈值 → 强制低速
+        if (_localHeat + HEAT_PER_BULLET >= heat_upper)
+        {
+            last_output = -maxRadps * 0.12f;
+            return -maxRadps * 0.12f;
+        }
+        // 条件2：热量 ≤ 安全阈值 → 恢复最大转速
+        else if (_localHeat <= heat_lower)
+        {
+            last_output = maxRadps;
+            return maxRadps;
+        }
+        // 条件3：中间滞回区 → 保持上一次的输出（这里默认保持低速更安全）
+        else
+        {
+            return last_output;
+        }
     }
 
     [[nodiscard]] float getLocalHeat() const { return _localHeat; }

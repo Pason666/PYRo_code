@@ -19,8 +19,8 @@ namespace pyro
 struct rud_cmd_t : cmd_base_t
 {
     float vx, vy, wz, yaw_error;
-    bool follow_yaw;
-    rud_cmd_t() : vx(0), vy(0), wz(0), yaw_error(0), follow_yaw(false)
+    bool follow_yaw, is_nav_mode;
+    rud_cmd_t() : vx(0), vy(0), wz(0), yaw_error(0), follow_yaw(false), is_nav_mode(false)
     {
     }
 };

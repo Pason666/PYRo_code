@@ -51,8 +51,8 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.6f, 0.0f, 0.001f, 0.5f, 7.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-            new pyro::pid_t(20.0f, 0.0f, 0.0f, 0, 8.0f);
-    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.8f, 0.0f, 0.0f, 0.2f, 3);
+            new pyro::pid_t(40.0f, 0.0f, 0.0f, 0, 18.0f);
+    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.7f, 0.0f, 0.0f, 0.2f, 3);
 
     gimbal_cfg.yaw_offset      = -1.10293245f;
 }
@@ -120,7 +120,7 @@ extern "C"
         static bool nav_enable  = false;
 
         can_tx_drv_t::clear(0x123);
-
+        
         if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
         {
             vx         = 0;

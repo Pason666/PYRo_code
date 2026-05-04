@@ -9,7 +9,7 @@ float test_fric_target_speed[2]{};
 
 namespace pyro
 {
-pid_t *bullet_speed_pid = new pid_t(1.5f, 0.0f, 0.0f, 0.0f, 1.0f);
+pid_t *bullet_speed_pid = new pid_t(1.8f, 0.0f, 0.0f, 0.0f, 1.5f);
 
 void shoot_17mm_control_t::state_continue_bullet_t::enter(owner *ctx)
 {
@@ -40,8 +40,10 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
 
     // --- 热控器动态调节安全射频 (关闭时全速) ---
     if (ctx->_ctx.cmd->heat_control_on)
+    {    
         ctx->_ctx.data.target_trig_radps =
             ctx->_ctx.data.heatController.getSafeBurstRadps(TRIGGER_CONTINUOUS_RADPS);
+    }
     else
         ctx->_ctx.data.target_trig_radps = TRIGGER_CONTINUOUS_RADPS;
 
@@ -93,7 +95,7 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
         {
             ctx->_ctx.data.block_start_tick = xTaskGetTickCount();
         }
-        else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >= pdMS_TO_TICKS(2000))
+        else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >= pdMS_TO_TICKS(CALI_BLOCK_TIME_MS))
         {
             // 堵转超时 2000ms, 记录来源状态并进入校准
             ctx->_ctx.data.jam_source_state = data_ctx_t::state_e::CONTINUE_BULLET;

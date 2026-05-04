@@ -83,7 +83,7 @@ void yaw_t::_send_motor_command(yaw_ctx_t *ctx)
 
 void yaw_t::_fsm_execute()
 {
-    _ctx.cmd = &_current_cmd;
+    _ctx.cmd = &_current_cmd;//但正常来说的话就算app层任务没生产，底层这里也会继续用上一次的命令
 
     if (cmd_base_t::mode_t::PASSIVE == _ctx.cmd->mode)
         _main_fsm.change_state(&_passive_state);

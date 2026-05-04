@@ -16,11 +16,12 @@ void shoot_17mm_control_t::state_single_bullet_t::enter(owner *ctx)
     // 目标角度: 在上一次目标基础上前进一发
     ctx->_ctx.data.target_trig_rad   = ctx->_ctx.data.target_trig_rad + PI / 4;
     ctx->_ctx.data.block_start_tick  = 0; // 清零堵转计时
-    ctx->_ctx.data.current_state     = data_ctx_t::state_e::SINGLE_BULLET;
 }
 
 void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
 {
+    static uint16_t time = 0;
+    time ++;
     // --- 紧急退出 ---
     if (!ctx->_ctx.cmd->is_fric_on)
     {
@@ -39,9 +40,9 @@ void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
         {
             ctx->_ctx.data.block_start_tick = xTaskGetTickCount();
         }
-        else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >= pdMS_TO_TICKS(2000))
+        else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >= pdMS_TO_TICKS(CALI_BLOCK_TIME_MS))
         {
-            // 堵转超时 2000ms, 记录来源状态并进入校准
+            // 堵转超时 1000ms, 记录来源状态并进入校准
             ctx->_ctx.data.jam_source_state = data_ctx_t::state_e::SINGLE_BULLET;
             this->request_switch(&ctx->_state_cali_reverse);
             return;
@@ -53,9 +54,10 @@ void shoot_17mm_control_t::state_single_bullet_t::execute(owner *ctx)
     }
 
     // --- 到达目标 → 完成 ---
-    if (std::abs(err) < 0.003f)
+    if (std::abs(err) < 0.003f || time > 500)
     {
         this->request_switch(&ctx->_state_done);
+        time = 0;
     }
 }
 
