@@ -74,43 +74,89 @@ extern "C"
 
     void gimbal_rc2cmd(void const *rc_ctrl)
     {
-        read_scope_lock lock(
+        auto *dr16_driver = pyro::rc_hub_t::get_instance(pyro::rc_hub_t::DR16);
+        read_scope_lock lockdr16(
             rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
+        auto *vt03_driver = pyro::rc_hub_t::get_instance(pyro::rc_hub_t::VT03);
+        read_scope_lock lockvt03(vt03_driver->get_lock());
+        const auto *rc_data = 
+            static_cast<vt03_drv_t::vt03_ctrl_t const*>(vt03_driver->read());
+
+        if(vt03_driver->check_online())
         {
-            gimbal_cmd_ptr->mode = gimbal_cmd_t::mode_t::PASSIVE;
-            gimbal_cmd_ptr->target_delta_pitch_rad = 0.0f;
-            gimbal_cmd_ptr->target_delta_yaw_rad   = 0.0f;
-            autoaim                                = false;
-            auto_fire = false;
+            if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_LEFT)
+            {
+                gimbal_cmd_ptr->mode = gimbal_cmd_t::mode_t::PASSIVE;
+                gimbal_cmd_ptr->target_delta_pitch_rad = 0.0f;
+                gimbal_cmd_ptr->target_delta_yaw_rad   = 0.0f;
+                autoaim                                = false;
+                auto_fire = false; 
+            }
+            else if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_MID)
+            {
+                gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
+                gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
+                gimbal_cmd_ptr->target_delta_pitch_rad = rc_data->rc.ch_ry * 0.005f;
+                gimbal_cmd_ptr->target_delta_yaw_rad   = rc_data->rc.ch_rx * 0.02f;
+                autoaim                                = false;
+                auto_fire = false;
+            }
+            else if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_RIGHT)
+            {
+                gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
+                gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
+                autoaim                     = true;
+                aim2mcu_process();
+            }
+
         }
-        else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
+        else if(dr16_driver->check_online())
         {
-            gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
-            gimbal_cmd_ptr->target_delta_pitch_rad = p_ctrl->rc.ch_ry * 0.005f;
-            gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
-            autoaim                                = false;
-            auto_fire = false;
+            if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
+            {
+                gimbal_cmd_ptr->mode = gimbal_cmd_t::mode_t::PASSIVE;
+                gimbal_cmd_ptr->target_delta_pitch_rad = 0.0f;
+                gimbal_cmd_ptr->target_delta_yaw_rad   = 0.0f;
+                autoaim                                = false;
+                auto_fire = false;
+            }
+            else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
+            {
+                gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
+                gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::MANUAL;
+                gimbal_cmd_ptr->target_delta_pitch_rad = p_ctrl->rc.ch_ry * 0.005f;
+                gimbal_cmd_ptr->target_delta_yaw_rad   = p_ctrl->rc.ch_rx * 0.02f;
+                autoaim                                = false;
+                auto_fire = false;
+            }
+            else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+            {
+                gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
+                gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
+                autoaim                     = true;
+                aim2mcu_process();
+            }
+
         }
-        else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
-        {
-            gimbal_cmd_ptr->mode        = gimbal_cmd_t::mode_t::ACTIVE;
-            gimbal_cmd_ptr->gimbal_mode = gimbal_cmd_t::gimbal_mode_t::SCANNING;
-            autoaim                     = true;
-            aim2mcu_process();
-        }
+        
     }
 
     void chassis_rc2cmd(void const *rc_ctrl)
     {
-        read_scope_lock lock(
+        auto *dr16_driver = pyro::rc_hub_t::get_instance(pyro::rc_hub_t::DR16);
+        read_scope_lock lockdr16(
             rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
         static auto *p_ctrl =
             static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
+
+        auto *vt03_driver = pyro::rc_hub_t::get_instance(pyro::rc_hub_t::VT03);
+        read_scope_lock lockvt03(vt03_driver->get_lock());
+        const auto *rc_data = 
+            static_cast<vt03_drv_t::vt03_ctrl_t const*>(vt03_driver->read());
+        
         static int8_t vx        = 0;
         static int8_t vy        = 0;
         static int8_t wz        = 0;
@@ -120,40 +166,98 @@ extern "C"
         static bool nav_enable  = false;
 
         can_tx_drv_t::clear(0x123);
+
+        if(vt03_driver->check_online())
+        {
+            if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_LEFT)
+            {
+                vx         = 0;
+                vy         = 0;
+                wz         = 0;
+                delta_yaw  = 0;
+                follow_yaw = false;
+                active     = false;
+                nav_enable = false;
+            }
+            else if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_MID)
+            {
+                if (abs(rc_data->rc.ch_ly) < 0.1f)
+                    vx = 0;
+                else
+                    vx = static_cast<int8_t>(rc_data->rc.ch_ly * 127);
+                if (abs(rc_data->rc.ch_lx) < 0.1f)
+                    vy = 0;
+                else
+                    vy = static_cast<int8_t>(rc_data->rc.ch_lx * 127);
+                wz         = 0;
+                delta_yaw  = static_cast<int8_t>(rc_data->rc.ch_rx * 127);
+                test_rx = static_cast<int8_t>(rc_data->rc.ch_rx * 127);
+                follow_yaw = true;
+                active     = true;
+                nav_enable = false;
+                if(rc_data->rc.ch_ly == 0 &&
+                    rc_data->rc.ch_lx == 0 &&
+                    rc_data->rc.ch_rx == 0 &&
+                    rc_data->rc.ch_ry == 0
+                )
+                {
+                    if (abs(rc_data->mouse.x) < 0.1f)
+                        vx = 0;
+                    else
+                        vx = static_cast<int8_t>(rc_data->rc.ch_ly * 127);
+                    if (abs(rc_data->rc.ch_lx) < 0.1f)
+                        vy = 0;
+                    else
+                        vy = static_cast<int8_t>(rc_data->rc.ch_lx * 127);
+                    wz         = 0;
+                    delta_yaw  = static_cast<int8_t>(rc_data->rc.ch_rx * 127);
+                    test_rx = static_cast<int8_t>(rc_data->rc.ch_rx * 127);
+                }
+            }
+            else if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_RIGHT)
+            {
+                follow_yaw = false;
+                active     = true;
+                nav_enable = true;
+            }
+        }
+        else if(dr16_driver->check_online())
+        {
+            if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
+            {
+                vx         = 0;
+                vy         = 0;
+                wz         = 0;
+                delta_yaw  = 0;
+                follow_yaw = false;
+                active     = false;
+                nav_enable = false;
+            }
+            else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
+            {
+                if (abs(p_ctrl->rc.ch_lx) < 0.1f)
+                    vx = 0;
+                else
+                    vx = static_cast<int8_t>(p_ctrl->rc.ch_lx * 127);
+                if (abs(p_ctrl->rc.ch_ly) < 0.1f)
+                    vy = 0;
+                else
+                    vy = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
+                wz         = 0;
+                delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
+                test_rx = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
+                follow_yaw = true;
+                active     = true;
+                nav_enable = false;
+            }
+            else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+            {
+                follow_yaw = false;
+                active     = true;
+                nav_enable = true;
+            }
+        }
         
-        if (dr16_drv_t::sw_state_t::SW_UP == p_ctrl->rc.s_r.state)
-        {
-            vx         = 0;
-            vy         = 0;
-            wz         = 0;
-            delta_yaw  = 0;
-            follow_yaw = false;
-            active     = false;
-            nav_enable = false;
-        }
-        else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
-        {
-            if (abs(p_ctrl->rc.ch_lx) < 0.1f)
-                vx = 0;
-            else
-                vx = static_cast<int8_t>(p_ctrl->rc.ch_lx * 127);
-            if (abs(p_ctrl->rc.ch_ly) < 0.1f)
-                vy = 0;
-            else
-                vy = static_cast<int8_t>(p_ctrl->rc.ch_ly * 127);
-            wz         = 0;
-            delta_yaw  = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
-            test_rx = static_cast<int8_t>(p_ctrl->rc.ch_rx * 127);
-            follow_yaw = true;
-            active     = true;
-            nav_enable = false;
-        }
-        else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
-        {
-            follow_yaw = false;
-            active     = true;
-            nav_enable = true;
-        }
 
         can_tx_drv_t::add_data(0x123, 8, vx);
         can_tx_drv_t::add_data(0x123, 8, vy);

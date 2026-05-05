@@ -151,7 +151,7 @@ bool referee_drv_t::send_packet(cmd_id cmd_id_val, const void *data,
     }
 
     append_crc16_check_sum(_tx_buffer, frame_total_len);
-    return (_uart->write(_tx_buffer, frame_total_len) == PYRO_OK);
+    return (_uart->write(_tx_buffer, frame_total_len, 1) == PYRO_OK);
 }
 
 bool referee_drv_t::_send_interaction_packet_base(const uint16_t sub_cmd_id,
@@ -187,11 +187,8 @@ bool referee_drv_t::send_robot_interaction(const uint16_t receiver_id,
     if (_robot_id == 0)
         return false;
 
-    const bool is_my_team_red = (_robot_id < 100);
-    const bool is_target_red  = (receiver_id < 100);
-
-    if (is_my_team_red != is_target_red)
-        return false;
+    // const bool is_my_team_red = (_robot_id < 100);
+    // const bool is_target_red  = (receiver_id < 100);
 
     return _send_interaction_packet_base(sub_cmd_id, receiver_id, data, len);
 }

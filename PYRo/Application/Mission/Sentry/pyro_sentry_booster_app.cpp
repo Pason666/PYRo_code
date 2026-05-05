@@ -27,6 +27,8 @@ dr16_drv_t::dr16_ctrl_t const *rc_ptr = nullptr;
 
 uint16_t down_time{};
 
+vt03_drv_t::vt03_ctrl_t dddddddata;
+
 void booster_config(booster_cfg_t &cfg)
 {
     cfg.motor.fric[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_3, can_hub_t::can1);
@@ -48,52 +50,117 @@ extern "C"
 {
     void booster_rc2cmd(void const *rc_ctrl)
     {
-        read_scope_lock lock(rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
+        auto *dr16_driver = pyro::rc_hub_t::get_instance(pyro::rc_hub_t::DR16);
+        read_scope_lock lockdr16(rc_hub_t::get_instance(rc_hub_t::DR16)->get_lock());
         static auto *p_ctrl = static_cast<dr16_drv_t::dr16_ctrl_t const *>(rc_ctrl);
 
-        if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state || dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
-        {
-            if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
-                dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
-            {
-                booster_cmd_ptr->is_fric_on = true;
+        auto *vt03_driver = pyro::rc_hub_t::get_instance(pyro::rc_hub_t::VT03);
+        read_scope_lock lockvt03(vt03_driver->get_lock());
+        const auto *rc_data = 
+        static_cast<vt03_drv_t::vt03_ctrl_t const*>(vt03_driver->read());
 
-                if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
+        dddddddata = *rc_data;
+
+        if(vt03_driver->check_online())
+        {
+            static float last_fn_l_time = 0.0f;
+            static float last_fn_r_time = 0.0f;
+            if (vt03_drv_t::gear_state_t::GEAR_RIGHT == rc_data->rc.gear.state||
+                vt03_drv_t::gear_state_t::GEAR_MID == rc_data->rc.gear.state)
+            {
+                if(rc_data->rc.fn_l.ctrl == pyro::vt03_drv_t::key_ctrl_t::KEY_PRESSED&&
+                   rc_data->rc.fn_l.change_time > last_fn_l_time)
                 {
-                    down_time++;
-                    if (down_time > 800)
+                    booster_cmd_ptr->is_fric_on = !booster_cmd_ptr->is_fric_on;
+                    last_fn_l_time = rc_data->rc.fn_l.change_time;
+                }
+                if(booster_cmd_ptr->is_fric_on)
+                {
+                    if(rc_data->rc.trigger.ctrl == pyro::vt03_drv_t::key_ctrl_t::KEY_PRESSED&&
+                       rc_data->rc.trigger.change_time > last_fn_r_time)
                     {
-                        booster_cmd_ptr->continue_shoot = true;
+                        booster_cmd_ptr->single_shoot = true;
+                        booster_cmd_ptr->continue_shoot = false;
+                        last_fn_r_time = rc_data->rc.trigger.change_time;
+                    }
+                    else if(rc_data->rc.trigger.ctrl == pyro::vt03_drv_t::key_ctrl_t::KEY_HOLD)
+                    { 
+                        down_time++;
+                        if (down_time > 600)
+                        {
+                            booster_cmd_ptr->continue_shoot = true;
+                            booster_cmd_ptr->single_shoot   = false;
+                        }
+                    }
+                    else
+                    {
                         booster_cmd_ptr->single_shoot   = false;
+                        booster_cmd_ptr->continue_shoot = false;
+                        down_time                       = 0;
+                    }
+                    
+
+                }
+                
+                
+            }
+            else
+            {
+                booster_cmd_ptr->is_fric_on     = false;
+                booster_cmd_ptr->continue_shoot = false;
+                booster_cmd_ptr->single_shoot   = false;
+                down_time                       = 0;
+            }
+            
+
+        }
+        else if(dr16_driver->check_online())
+        {
+            if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state || dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
+            {
+                if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
+                    dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
+                {
+                    booster_cmd_ptr->is_fric_on = true;
+
+                    if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
+                    {
+                        down_time++;
+                        if (down_time > 800)
+                        {
+                            booster_cmd_ptr->continue_shoot = true;
+                            booster_cmd_ptr->single_shoot   = false;
+                        }
+                    }
+                    else
+                    {
+                        booster_cmd_ptr->continue_shoot = false;
+                        down_time                       = 0;
+                    }
+
+                    static float sl_using_time = 0;
+                    if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
+                        p_ctrl->rc.s_l.change_time != sl_using_time)
+                    {
+                        sl_using_time                 = p_ctrl->rc.s_l.change_time;
+                        booster_cmd_ptr->single_shoot = true;
+                        booster_cmd_ptr->continue_shoot = false;
                     }
                 }
                 else
                 {
-                    booster_cmd_ptr->continue_shoot = false;
-                    down_time                       = 0;
-                }
-
-                static float sl_using_time = 0;
-                if (dr16_drv_t::sw_ctrl_t::SW_MID_TO_DOWN == p_ctrl->rc.s_l.ctrl &&
-                    p_ctrl->rc.s_l.change_time != sl_using_time)
-                {
-                    sl_using_time                 = p_ctrl->rc.s_l.change_time;
-                    booster_cmd_ptr->single_shoot = true;
-                    booster_cmd_ptr->continue_shoot = false;
+                    booster_cmd_ptr->is_fric_on = false;
                 }
             }
             else
             {
-                booster_cmd_ptr->is_fric_on = false;
+                booster_cmd_ptr->is_fric_on     = false;
+                booster_cmd_ptr->continue_shoot = false;
+                booster_cmd_ptr->single_shoot   = false;
+                down_time                       = 0;
             }
         }
-        else
-        {
-            booster_cmd_ptr->is_fric_on     = false;
-            booster_cmd_ptr->continue_shoot = false;
-            booster_cmd_ptr->single_shoot   = false;
-            down_time                       = 0;
-        }
+        
     }
 
     void chassis2booster()
