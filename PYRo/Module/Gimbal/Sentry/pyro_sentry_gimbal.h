@@ -132,6 +132,8 @@ class gimbal_t final
 
         float aim_imu_max_yaw{};
         float aim_imu_min_yaw{};
+
+        float aim_time{};
     };
 
 

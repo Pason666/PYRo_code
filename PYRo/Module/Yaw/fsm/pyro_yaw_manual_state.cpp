@@ -12,10 +12,6 @@ void yaw_t::fsm_active_t::state_manual_t::enter(owner *owner)
 
 void yaw_t::fsm_active_t::state_manual_t::execute(owner *owner)
 {
-    auto *motor = owner->_ctx.yaw_config.motor.yaw;
-    static uint32_t last_retry_tick = 0;
-    const uint32_t now = xTaskGetTickCount();
-
     if (dm_motor_drv_t::ok !=
         owner->_ctx.yaw_config.motor.yaw->get_error_code())
     {

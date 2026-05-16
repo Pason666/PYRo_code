@@ -52,6 +52,9 @@ class uart_drv_t
     using rx_event_func = std::function<bool(
         uint8_t *p, uint16_t size, BaseType_t& xHigherPriorityTaskWoken)>;
 
+    using tx_cplt_func =
+        std::function<void(BaseType_t &xHigherPriorityTaskWoken)>;
+
     /**
      * @brief Structure to store registered RX callbacks with an owner ID.
      */
@@ -60,6 +63,12 @@ class uart_drv_t
         uint32_t owner;
         rx_event_func func;
     } rx_event_callback_t;
+
+    typedef struct tx_cplt_callback_t
+    {
+        uint32_t owner;
+        tx_cplt_func func;
+    } tx_cplt_callback_t;
 
     /**
      * @brief Internal state flags (bit-field) for tracking driver status.
@@ -135,10 +144,12 @@ class uart_drv_t
      * @brief Adds a C++ RX event callback.
      */
     void add_rx_event_callback(const rx_event_func &func, uint32_t owner);
+    void add_tx_cplt_callback(const tx_cplt_func &func, uint32_t owner);
     /**
      * @brief Removes a C++ RX event callback by its owner ID.
      */
     status_t remove_rx_event_callback(uint32_t);
+    status_t remove_tx_cplt_callback(uint32_t owner);
 
     /* Public Methods - HAL Callback Registration
      * ------------------------------*/
@@ -171,6 +182,7 @@ class uart_drv_t
     /* Public Members - State/Data
      * ------------------------------------*/
     std::vector<rx_event_callback_t> rx_event_callbacks;
+    std::vector<tx_cplt_callback_t> tx_cplt_callbacks;
     uint8_t *rx_buf[2];      // Double buffers for DMA reception
     uint8_t rx_buf_switch{}; // Index of the currently active buffer
     state_t state{};

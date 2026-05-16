@@ -119,14 +119,14 @@ extern "C"
             if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state || dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
             {
                 if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_l.state ||
-                    dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
+                    dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state)
                 {
                     booster_cmd_ptr->is_fric_on = true;
 
                     if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_l.state || auto_fire)
                     {
                         down_time++;
-                        if (down_time > 800)
+                        if (down_time > 800 || auto_fire)
                         {
                             booster_cmd_ptr->continue_shoot = true;
                             booster_cmd_ptr->single_shoot   = false;

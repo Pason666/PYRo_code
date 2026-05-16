@@ -5,7 +5,7 @@ namespace pyro
 {
 
 // constexpr float TRIGGER_UNJAM_RADPS      = 6.0f;   // 解堵速度
-constexpr float TRIGGER_CONTINUOUS_RADPS = 15; // 连续发射速度（拨弹盘速度）
+constexpr float TRIGGER_CONTINUOUS_RADPS = 10; // 连续发射速度（拨弹盘速度）
 
 // 堵转判定
 // constexpr float TRIGGER_BLOCK_RAD        = 0.2f; // 堵转判定弧度阈值

@@ -11,9 +11,13 @@
 #include "pyro_task.h"
 #include <bitset>
 #include <initializer_list>
+#include "pyro_core_config.h"
 #include "fifo.h"
 #include <cstdint>
 
+#include "FreeRTOS.h"
+#include "pyro_mutex.h"
+#include "semphr.h"
 
 namespace pyro
 {
@@ -23,8 +27,8 @@ class referee_drv_t
   public:
     static constexpr uint16_t FIFO_BUF_LEN   = 1024;
     static constexpr size_t MAX_CMD_ID_COUNT = 1024;
-    // 使用 reinterpret_cast 转换 protocol 中的常量
     static constexpr size_t MAX_TX_FRAME_LEN = FRAME_MAX_SIZE;
+    static constexpr uint8_t TX_BUFFER_NUM   = 2;
 
     static referee_drv_t *get_instance();
 
@@ -135,7 +139,10 @@ class referee_drv_t
 
     uint8_t _send_seq;
     uint16_t _robot_id;
-    uint8_t _tx_buffer[MAX_TX_FRAME_LEN]{};
+    uint8_t *_tx_buffers[TX_BUFFER_NUM]{};
+    uint8_t _tx_buffer_idx;
+    mutex_t _tx_mutex;
+    SemaphoreHandle_t _tx_cplt_sem;
 
     std::bitset<MAX_CMD_ID_COUNT> _enabled_ids;
     bool _is_online;

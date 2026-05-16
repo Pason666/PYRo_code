@@ -231,7 +231,7 @@ extern "C"
                 raw_vx = nav2mcu_msg.data.vx;
             if (abs(nav2mcu_msg.data.vy) <= 2)
                 raw_vy = nav2mcu_msg.data.vy;
-            if (abs(nav2mcu_msg.data.wz) <= 2)
+            if (abs(nav2mcu_msg.data.wz) <= 10)
                 raw_wz = nav2mcu_msg.data.wz;
             raw_yaw     = nav2mcu_msg.data.yaw;
 
@@ -352,8 +352,12 @@ extern "C"
     void mcu2nav_process()
     {
         mcu2nav_msg.data.self_hp = referee_data.robot_status.current_hp;
-        mcu2nav_msg.data.self_ammo =
-            referee_data.allowance.projectile_allowance_17mm;
+        if (referee_data.allowance.projectile_allowance_17mm > 0)
+        {
+            mcu2nav_msg.data.self_ammo = referee_data.allowance.projectile_allowance_17mm;
+        }
+        else
+            mcu2nav_msg.data.self_ammo = 300;
         mcu2nav_msg.data.game_state   = referee_data.game_status.game_progress;
         mcu2nav_msg.data.self_base_hp = referee_data.game_robot_hp.base_hp;
         mcu2nav_msg.data.self_outpost_hp =

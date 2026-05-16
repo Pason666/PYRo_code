@@ -102,6 +102,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         PYRo/Component/RC/pyro_vt03_rc_drv.cpp
         PYRo/Component/Referee/fifo.c
         PYRo/Component/Referee/pyro_referee.cpp
+        PYRo/Component/Referee/UI/pyro_ui_drv.cpp
         PYRo/Component/INS/pyro_ins.cpp
         PYRo/Component/Supercap/pyro_supercap_drv.cpp
 
@@ -186,6 +187,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
         PYRo/Component/Powermeter
         PYRo/Component/RC
         PYRo/Component/Referee
+        PYRo/Component/Referee/UI
         PYRo/Component/Supercap
         PYRo/Component/Message
 

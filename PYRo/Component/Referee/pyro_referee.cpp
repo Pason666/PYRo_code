@@ -7,6 +7,7 @@
 #include "pyro_crc.h"
 #include "pyro_dwt_drv.h"
 #include "pyro_core_config.h"
+#include "pyro_core_dma_heap.h"
 #include <cstring> // for memcpy, strlen
 
 namespace pyro
@@ -55,10 +56,27 @@ referee_drv_t *referee_drv_t::get_instance()
 
 referee_drv_t::referee_drv_t(uart_drv_t *uart_handle)
     : _uart(uart_handle), _task(nullptr), _data{}, _unpack_obj{}, _send_seq(0),
-      _robot_id(0), _is_online(false), _last_update_time(0)
+      _robot_id(0), _tx_buffer_idx(0), _tx_cplt_sem(nullptr),
+      _is_online(false), _last_update_time(0)
 {
     fifo_s_init(&_fifo, _fifo_buf, FIFO_BUF_LEN);
-    memset(_tx_buffer, 0, MAX_TX_FRAME_LEN);
+
+    for (auto &buf : _tx_buffers)
+    {
+        buf = static_cast<uint8_t *>(pvPortDmaMalloc(MAX_TX_FRAME_LEN));
+        configASSERT(buf != nullptr);
+        if (buf)
+        {
+            memset(buf, 0, MAX_TX_FRAME_LEN);
+        }
+    }
+
+    _tx_cplt_sem = xSemaphoreCreateBinary();
+    configASSERT(_tx_cplt_sem != nullptr);
+    if (_tx_cplt_sem)
+    {
+        xSemaphoreGive(_tx_cplt_sem);
+    }
 
     _task = new referee_task(this);
 }
@@ -88,6 +106,12 @@ void referee_drv_t::init(const std::initializer_list<cmd_id> listening_ids)
         { return this->rx_callback(p, size, task_woken); },
         reinterpret_cast<uint32_t>(this));
 
+    _uart->add_tx_cplt_callback(
+        [this](BaseType_t &woken) {
+            xSemaphoreGiveFromISR(this->_tx_cplt_sem, &woken);
+        },
+        reinterpret_cast<uint32_t>(this));
+
     if (_task)
         _task->start();
 }
@@ -103,6 +127,12 @@ void referee_drv_t::init()
         [this](uint8_t *p, const uint16_t size,
                const BaseType_t task_woken) -> bool
         { return this->rx_callback(p, size, task_woken); },
+        reinterpret_cast<uint32_t>(this));
+
+    _uart->add_tx_cplt_callback(
+        [this](BaseType_t &woken) {
+            xSemaphoreGiveFromISR(this->_tx_cplt_sem, &woken);
+        },
         reinterpret_cast<uint32_t>(this));
 
     if (_task)
@@ -121,37 +151,52 @@ uint16_t referee_drv_t::get_client_id() const
 bool referee_drv_t::send_packet(cmd_id cmd_id_val, const void *data,
                                 uint16_t const len)
 {
-    // C++ Cast: static_cast for enum to int
     const auto cmd_val             = static_cast<uint16_t>(cmd_id_val);
-
     const uint16_t frame_total_len = HEADER_CMDID_LEN + len + CRC16_SIZE;
-    if (frame_total_len > MAX_TX_FRAME_LEN)
-        return false;
-    if (!_uart)
+
+    if (frame_total_len > MAX_TX_FRAME_LEN || !_uart || !_tx_cplt_sem)
         return false;
 
-    // C++ Cast: reinterpret_cast for byte buffer manipulation
-    auto *p_header        = reinterpret_cast<frame_header_t *>(_tx_buffer);
+    const scoped_mutex_t lock(_tx_mutex, pdMS_TO_TICKS(100));
+    if (!lock.is_locked())
+        return false;
 
+    uint8_t *current_tx_buf = _tx_buffers[_tx_buffer_idx];
+    if (!current_tx_buf)
+        return false;
+    _tx_buffer_idx = (_tx_buffer_idx + 1) % TX_BUFFER_NUM;
+
+    auto *p_header        = reinterpret_cast<frame_header_t *>(current_tx_buf);
     p_header->sof         = HEADER_SOF;
     p_header->data_length = len;
     p_header->seq         = _send_seq++;
     p_header->crc8        = 0;
 
-    append_crc8_check_sum(reinterpret_cast<uint8_t *>(p_header), HEADER_SIZE);
+    append_crc8_check_sum(current_tx_buf, HEADER_SIZE);
 
-    // Pointer arithmetic handled with proper casting
-    uint8_t *p_cmd_start = _tx_buffer + HEADER_SIZE;
+    uint8_t *p_cmd_start = current_tx_buf + HEADER_SIZE;
     auto *p_cmd_id       = reinterpret_cast<uint16_t *>(p_cmd_start);
     *p_cmd_id            = cmd_val;
 
     if (len > 0 && data != nullptr)
     {
-        memcpy(_tx_buffer + HEADER_CMDID_LEN, data, len);
+        memcpy(current_tx_buf + HEADER_CMDID_LEN, data, len);
     }
 
-    append_crc16_check_sum(_tx_buffer, frame_total_len);
-    return (_uart->write(_tx_buffer, frame_total_len, 1) == PYRO_OK);
+    append_crc16_check_sum(current_tx_buf, frame_total_len);
+
+    if (xSemaphoreTake(_tx_cplt_sem, pdMS_TO_TICKS(50)) != pdTRUE)
+    {
+        return false;
+    }
+
+    if (_uart->write(current_tx_buf, frame_total_len) != PYRO_OK)
+    {
+        xSemaphoreGive(_tx_cplt_sem);
+        return false;
+    }
+
+    return true;
 }
 
 bool referee_drv_t::_send_interaction_packet_base(const uint16_t sub_cmd_id,
@@ -159,9 +204,7 @@ bool referee_drv_t::_send_interaction_packet_base(const uint16_t sub_cmd_id,
                                                   const void *data,
                                                   const uint16_t len)
 {
-    // Payload max check: 128 - 9 (Frame overhead) - 6 (Interact Header) = 113
-    // Safety buffer used: 112
-    if (len + sizeof(interaction_header_t) > 119)
+    if (len + sizeof(interaction_header_t) > 118)
         return false;
 
     uint8_t buffer[128]; // Use stack buffer
@@ -187,8 +230,11 @@ bool referee_drv_t::send_robot_interaction(const uint16_t receiver_id,
     if (_robot_id == 0)
         return false;
 
-    // const bool is_my_team_red = (_robot_id < 100);
-    // const bool is_target_red  = (receiver_id < 100);
+    const bool is_my_team_red = (_robot_id < 100);
+    const bool is_target_red  = (receiver_id < 100);
+
+    if (is_my_team_red != is_target_red)
+        return false;
 
     return _send_interaction_packet_base(sub_cmd_id, receiver_id, data, len);
 }
@@ -196,7 +242,7 @@ bool referee_drv_t::send_robot_interaction(const uint16_t receiver_id,
 bool referee_drv_t::send_ui_interaction(const uint16_t sub_cmd_id,
                                         const void *data)
 {
-    static uint8_t len = 0;
+    uint8_t len = 0;
     switch (sub_cmd_id)
     {
         case static_cast<uint16_t>(interaction_sub_cmd::UI_CMD_DELETE):
@@ -221,8 +267,10 @@ bool referee_drv_t::send_ui_interaction(const uint16_t sub_cmd_id,
             len = 0;
             break;
     }
-    return _send_interaction_packet_base(sub_cmd_id, get_client_id(), data,
-                                         len);
+    const bool ret =
+        _send_interaction_packet_base(sub_cmd_id, get_client_id(), data, len);
+    vTaskDelay(pdMS_TO_TICKS(32));
+    return ret;
 }
 
 bool referee_drv_t::send_custom_info(const char *message)
@@ -250,8 +298,9 @@ bool referee_drv_t::send_custom_info(const char *message)
 // RX Implementation
 // ==========================================================================
 
-bool referee_drv_t::rx_callback(uint8_t *p, const uint16_t size,
-                                BaseType_t task_woken)
+__attribute__((section(".itcm_text"))) bool
+referee_drv_t::rx_callback(uint8_t *p, const uint16_t size,
+                           BaseType_t task_woken)
 {
     // FIFO expects char*
     fifo_s_puts(&_fifo, reinterpret_cast<char *>(p), size);
@@ -393,6 +442,7 @@ void referee_drv_t::solve_data(const uint8_t *frame)
             break;
         case cmd_id::ROBOT_STATE:
             safe_copy(_data.robot_status, frame + index, data_length);
+            _robot_id = _data.robot_status.robot_id;
             break;
         case cmd_id::POWER_HEAT_DATA:
             safe_copy(_data.power_heat, frame + index, data_length);
@@ -408,6 +458,7 @@ void referee_drv_t::solve_data(const uint8_t *frame)
             break;
         case cmd_id::SHOOT_DATA:
             safe_copy(_data.shoot, frame + index, data_length);
+            _data.shoot.launching_num++;
             break;
         case cmd_id::BULLET_REMAINING:
             safe_copy(_data.allowance, frame + index, data_length);

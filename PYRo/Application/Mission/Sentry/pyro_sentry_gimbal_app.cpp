@@ -54,16 +54,24 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
             new pyro::pid_t(40.0f, 0.0f, 0.0f, 0, 18.0f);
     gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.7f, 0.0f, 0.0f, 0.2f, 3);
 
-    gimbal_cfg.yaw_offset      = -1.10293245f;
+    gimbal_cfg.yaw_offset      = 3.10401011f;
 }
 
 extern "C"
 {
     void aim2mcu_process()
     {
-        gimbal_cmd_ptr->is_aiming         = aim2mcu_msg.data.fire;
+        if(aim2mcu_msg.data.target_id == 9)
+        {
+            gimbal_cmd_ptr->is_aiming = false;   
+        }
+        else
+        {
+            gimbal_cmd_ptr->is_aiming = true;
+        }
+        
         if_aim = aim2mcu_msg.data.fire;
-        auto_fire                         = false;
+        auto_fire                         = aim2mcu_msg.data.fire;
         if(abs(aim2mcu_msg.data.shoot_yaw) <= PI)
             gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
         if(abs(aim2mcu_msg.data.shoot_pitch) <= PI / 2)

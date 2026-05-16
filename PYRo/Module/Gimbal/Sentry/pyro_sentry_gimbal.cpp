@@ -42,6 +42,7 @@ void gimbal_t::_update_feedback()
     _ctx.data.current_pitch_rad = wrap_pi(_ctx.data.current_pitch_rad);
 
     my_pitch_mec = _ctx.data.current_pitch_rad;
+    test_current_pos = _ctx.data.current_yaw_rad;
 
     _ctx.data.current_pitch_radps =
         _ctx.gimbal_config.motor.pitch->get_current_rotate();

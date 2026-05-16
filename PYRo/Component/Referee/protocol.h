@@ -69,7 +69,7 @@ enum class interaction_sub_cmd : uint16_t
     UI_CMD_DRAW_2    = 0x0102,
     UI_CMD_DRAW_5    = 0x0103,
     UI_CMD_DRAW_7    = 0x0104,
-    UI_CMD_DRAW_CHAR = 0x0105,
+    UI_CMD_DRAW_CHAR = 0x0110,
     // 机器人间通信 (Robot -> Robot)
     ROBOT_COMM_START = 0x0200,
     ROBOT_COMM_END   = 0x02FF,
@@ -159,7 +159,17 @@ struct referee_warning_t
 struct dart_info_t
 {
     uint8_t dart_remaining_time;
-    uint16_t dart_info;
+    union
+    {
+        uint16_t dart_info;
+        struct
+        {
+            uint16_t dart_last_hit_target  : 3;
+            uint16_t dart_target_hit_count : 3;
+            uint16_t dart_aim_target       : 3;
+            uint16_t reserved              : 7;
+        };
+    };
 };
 
 // 0x0201
@@ -175,6 +185,7 @@ struct robot_status_t
     uint8_t power_management_gimbal_output  : 1;
     uint8_t power_management_chassis_output : 1;
     uint8_t power_management_shooter_output : 1;
+    uint8_t reserved                        : 5;
 };
 
 struct sentry_cmd_t
@@ -243,6 +254,7 @@ struct shoot_data_t
     uint8_t shooter_number;
     uint8_t launching_frequency;
     float initial_speed;
+    uint16_t launching_num;
 };
 
 // 0x0208
@@ -257,7 +269,45 @@ struct projectile_allowance_t
 // 0x0209
 struct rfid_status_t
 {
-    uint32_t rfid_status;
+    union
+    {
+        uint32_t rfid_status;
+        struct
+        {
+            uint32_t ally_base_buff              : 1;
+            uint32_t ally_circular_high          : 1;
+            uint32_t enemy_circular_high         : 1;
+            uint32_t ally_trapezoidal_high       : 1;
+            uint32_t enemy_trapezoidal_high      : 1;
+            uint32_t ally_fly_ramp_front         : 1;
+            uint32_t ally_fly_ramp_back          : 1;
+            uint32_t enemy_fly_ramp_front        : 1;
+            uint32_t enemy_fly_ramp_back         : 1;
+            uint32_t ally_circular_high_down     : 1;
+            uint32_t ally_circular_high_up       : 1;
+            uint32_t enemy_circular_high_down    : 1;
+            uint32_t enemy_circular_high_up      : 1;
+            uint32_t ally_highway_down           : 1;
+            uint32_t ally_highway_up             : 1;
+            uint32_t enemy_highway_down          : 1;
+            uint32_t enemy_highway_up            : 1;
+            uint32_t ally_fortress_buff          : 1;
+            uint32_t ally_outpost_buff           : 1;
+            uint32_t ally_supply_no_overlap      : 1;
+            uint32_t ally_supply_overlap         : 1;
+            uint32_t ally_assembly_buff          : 1;
+            uint32_t enemy_assembly_buff         : 1;
+            uint32_t center_buff                 : 1;
+            uint32_t enemy_fortress_buff         : 1;
+            uint32_t enemy_outpost_buff          : 1;
+            uint32_t ally_tunnel_highway_down    : 1;
+            uint32_t ally_tunnel_highway_mid     : 1;
+            uint32_t ally_tunnel_highway_up      : 1;
+            uint32_t ally_tunnel_trapezoidal_low : 1;
+            uint32_t ally_tunnel_trapezoidal_mid : 1;
+            uint32_t ally_tunnel_trapezoidal_high: 1;
+        };
+    };
     uint8_t rfid_status_2;
 };
 
