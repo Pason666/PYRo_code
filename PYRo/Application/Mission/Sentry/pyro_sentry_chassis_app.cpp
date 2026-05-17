@@ -35,6 +35,7 @@ powermeter_drv_t *power_meter;
 powermeter_data power_data;
 
 __attribute__((section(".dma_heap"))) sentry_cmd_t sentry_cmd;
+__attribute__((section(".dma_heap"))) map_data_t map_data;
 __attribute__((section(".dma_heap"))) nav2mcu_msg_t nav2mcu_msg;
 __attribute__((section(".dma_heap"))) mcu2nav_msg_t mcu2nav_msg;
 
@@ -279,7 +280,17 @@ extern "C"
 
     void referee_process(const referee_drv_t *referee_drv)
     {
+        int8_t x_data[49] = {
+     0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+    10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+    20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+    40, 41, 42, 43, 44, 45, 46, 47, 48
+};
         referee_data = referee_drv->get_data();
+        referee_drv_t::get_instance()->set_robot_id(referee_data.robot_status.robot_id);
+
+        // 哨兵自主决策相关
         if ((referee_data.sentry_info.sentry_info >> 19 & 0x01))
             sentry_cmd.confirm_resurrection = 1;
         else
@@ -297,6 +308,14 @@ extern "C"
 
         sentry_cmd.confirm_activate_rune = 0;
         sentry_cmd.reserved = 0;
+
+        // 更新地图数据
+        map_data.intention = 1;
+        map_data.start_position_x = 0;
+        map_data.start_position_y = 0;
+        memcpy(map_data.delta_x, x_data, sizeof(x_data));
+        memcpy(map_data.delta_y, x_data, sizeof(x_data));
+        map_data.sender_id = referee_data.robot_status.robot_id;
     }
 
     void chassis2gimbal()
@@ -386,7 +405,9 @@ extern "C"
             {
                 referee_drv_t::get_instance()->send_robot_interaction(
                     0x8080, 0x0120, &sentry_cmd, sizeof(sentry_cmd));
-                referee_counter = 0;
+
+                    referee_drv_t::get_instance()->send_map_data(&map_data, sizeof(map_data));
+                    referee_counter = 0;
             }
 
             static uint8_t mcu2nav_counter = 0;
@@ -414,7 +435,7 @@ extern "C"
         rud_cfg_ptr = new rud_cfg_t();
         yaw_cmd_ptr = new yaw_cmd_t();
         yaw_cfg_ptr = new yaw_cfg_t();
-        comm        = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
+        comm        = new uart_comm_t(PYRO_UART10, 0x01);
 
         // 注册区域
         mcu2nav_msg.header.sof = 0xA5;

@@ -77,6 +77,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         PYRo/Peripheral/CAN/pyro_can_drv.cpp
         PYRo/Peripheral/DWT/pyro_dwt_drv.cpp
         PYRo/Peripheral/UART/pyro_uart_drv.cpp
+        PYRo/Peripheral/UART/pyro_bsp_uart.cpp
 
         # --- Algorithm ---
         PYRo/Algorithm/Kinematics/pyro_kin_hybrid.cpp

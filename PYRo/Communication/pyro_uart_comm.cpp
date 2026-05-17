@@ -8,15 +8,15 @@
 namespace pyro
 {
 
-uart_comm_t::uart_comm_t(uart_drv_t::which_uart uart_id, uint32_t owner_id, size_t msg_buf_size)
-    : _drv(nullptr), _owner_id(owner_id)
+uart_comm_t::uart_comm_t(uart_drv_t &uart_drv, uint32_t owner_id,
+                         size_t msg_buf_size)
+    : _drv(&uart_drv), _owner_id(owner_id)
 {
     // 1. 创建 FreeRTOS 消息缓冲区
     _msg_buffer = xMessageBufferCreate(msg_buf_size);
     configASSERT(_msg_buffer != nullptr);
 
     // 2. 获取底层驱动实例
-    _drv = uart_drv_t::get_instance(uart_id);
     if (_drv)
     {
         // 3. 将本类的 internal_rx_callback 通过 Lambda 表达式注册到底层 ISR

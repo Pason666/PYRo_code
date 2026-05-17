@@ -4,9 +4,10 @@
  */
 
 #include "pyro_referee.h"
+
+#include "pyro_bsp_uart.h"
 #include "pyro_crc.h"
 #include "pyro_dwt_drv.h"
-#include "pyro_core_config.h"
 #include "pyro_core_dma_heap.h"
 #include <cstring> // for memcpy, strlen
 
@@ -47,12 +48,13 @@ void referee_drv_t::referee_task::run_loop()
 // Driver Singleton & Constructor
 // ==========================================================================
 
+#ifdef REFEREE_UART
 referee_drv_t *referee_drv_t::get_instance()
 {
-    static referee_drv_t instance(
-        uart_drv_t::get_instance(static_cast<uart_drv_t::which_uart>(REFEREE_UART)));
+    static referee_drv_t instance(&REFEREE_UART);
     return &instance;
 }
+#endif
 
 referee_drv_t::referee_drv_t(uart_drv_t *uart_handle)
     : _uart(uart_handle), _task(nullptr), _data{}, _unpack_obj{}, _send_seq(0),
@@ -106,11 +108,9 @@ void referee_drv_t::init(const std::initializer_list<cmd_id> listening_ids)
         { return this->rx_callback(p, size, task_woken); },
         reinterpret_cast<uint32_t>(this));
 
-    _uart->add_tx_cplt_callback(
-        [this](BaseType_t &woken) {
-            xSemaphoreGiveFromISR(this->_tx_cplt_sem, &woken);
-        },
-        reinterpret_cast<uint32_t>(this));
+    _uart->set_tx_cplt_callback([this](BaseType_t &woken) {
+        xSemaphoreGiveFromISR(this->_tx_cplt_sem, &woken);
+    });
 
     if (_task)
         _task->start();
@@ -129,11 +129,9 @@ void referee_drv_t::init()
         { return this->rx_callback(p, size, task_woken); },
         reinterpret_cast<uint32_t>(this));
 
-    _uart->add_tx_cplt_callback(
-        [this](BaseType_t &woken) {
-            xSemaphoreGiveFromISR(this->_tx_cplt_sem, &woken);
-        },
-        reinterpret_cast<uint32_t>(this));
+    _uart->set_tx_cplt_callback([this](BaseType_t &woken) {
+        xSemaphoreGiveFromISR(this->_tx_cplt_sem, &woken);
+    });
 
     if (_task)
         _task->start();
@@ -237,6 +235,14 @@ bool referee_drv_t::send_robot_interaction(const uint16_t receiver_id,
         return false;
 
     return _send_interaction_packet_base(sub_cmd_id, receiver_id, data, len);
+}
+
+bool referee_drv_t::send_map_data(const void *data, uint16_t len)
+{
+    if (_robot_id == 0)
+        return false;
+
+    return send_packet(cmd_id::MAP_RECEIVE_PATH, data, len);
 }
 
 bool referee_drv_t::send_ui_interaction(const uint16_t sub_cmd_id,

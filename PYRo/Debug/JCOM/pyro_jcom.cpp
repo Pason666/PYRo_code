@@ -26,7 +26,7 @@ jcom_drv_t::~jcom_drv_t()
 jcom_drv_t &jcom_drv_t::get_instance(uint8_t max_length)
 {
     static jcom_drv_t instance(
-        max_length, uart_drv_t::get_instance(static_cast<uart_drv_t::which_uart>(JCOM_DEBUG_PORT)));
+        max_length, &JCOM_DEBUG_PORT);
     return instance;
 }
 
@@ -105,6 +105,9 @@ void jcom_drv_t::thread()
 
 extern "C" void pyro_jcom_task(void *arg)
 {
+#ifdef JCOM_DEBUG_PORT
     pyro::jcom_drv_t &jcom = pyro::jcom_drv_t::get_instance(15);
     jcom.thread();
+#endif
+    vTaskDelete(nullptr);
 }

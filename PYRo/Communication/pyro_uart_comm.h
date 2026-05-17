@@ -37,17 +37,18 @@ class uart_comm_t
   public:
     /**
      * @brief 构造函数
-     * @param uart_id      选择的 UART 外设枚举 (例如 uart_drv_t::which_uart::uart1)
+     * @param uart_drv     选择的 UART 外设驱动实例
      * @param owner_id     回调的拥有者 ID，用于底层区分不同应用
      * @param msg_buf_size FreeRTOS 消息缓冲区的总大小（字节数）
      */
-    uart_comm_t(uart_drv_t::which_uart uart_id, uint32_t owner_id, size_t msg_buf_size = 1024);
+    uart_comm_t(uart_drv_t &uart_drv, uint32_t owner_id,
+                size_t msg_buf_size = 1024);
 
     ~uart_comm_t();
 
     // 禁用拷贝构造和赋值操作，防止资源重复释放
-    uart_comm_t(const uart_comm_t&) = delete;
-    uart_comm_t& operator=(const uart_comm_t&) = delete;
+    uart_comm_t(const uart_comm_t &)            = delete;
+    uart_comm_t &operator=(const uart_comm_t &) = delete;
 
     /* ===================================================================== */
     /* 消息过滤注册接口 (底层基础类型重载)                                */
