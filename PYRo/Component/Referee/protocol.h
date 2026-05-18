@@ -31,10 +31,8 @@ enum class cmd_id : uint16_t
     REFEREE_WARNING     = 0x0104, // 裁判警告数据
     DART_INFO           = 0x0105, // 飞镖发射相关数据
 
-    // Rx: 自主决策
-    SENTRY_CMD          = 0x0120, // [V1.2] 哨兵自主决策指令
-    RADAR_CMD           = 0x0121, // [V1.2] 雷达自主决策指令
-
+    SENTRY_CMD          = 0x0120,
+    RADAR_CMD           = 0x0121,
     ROBOT_STATE         = 0x0201, // 机器人性能体系数据
     POWER_HEAT_DATA     = 0x0202, // 实时功率热量数据
     ROBOT_POS           = 0x0203, // 机器人位置
@@ -74,8 +72,8 @@ enum class interaction_sub_cmd : uint16_t
     ROBOT_COMM_START = 0x0200,
     ROBOT_COMM_END   = 0x02FF,
     // 自主决策指令
-    SENTRY_CMD       = 0x0120,
-    RADAR_CMD        = 0x0121,
+    SENTRY_CMD       = 0x0120, // [V1.2] 哨兵自主决策指令
+    RADAR_CMD        = 0x0121, // [V1.2] 雷达自主决策指令
 };
 
 // 帧头结构
@@ -146,13 +144,20 @@ struct referee_warning_t
 struct dart_info_t
 {
     uint8_t dart_remaining_time;
-    uint16_t dart_last_hit_target  : 3;
-    uint16_t dart_target_hit_count : 3;
-    uint16_t dart_aim_target       : 3;
-    uint16_t reserved              : 7;
+    union
+    {
+        uint16_t dart_info;
+        struct
+        {
+            uint16_t dart_last_hit_target  : 3;
+            uint16_t dart_target_hit_count : 3;
+            uint16_t dart_aim_target       : 3;
+            uint16_t reserved              : 7;
+        };
+    };
 };
 
-// 0x0201
+// 0x0201 机器人状态数据 (增加 reserved 补齐字节对齐)
 struct robot_status_t
 {
     uint8_t robot_id;
@@ -162,33 +167,23 @@ struct robot_status_t
     uint16_t shooter_barrel_cooling_value;
     uint16_t shooter_barrel_heat_limit;
     uint16_t chassis_power_limit;
-    uint8_t power_management_gimbal_output  : 1;
-    uint8_t power_management_chassis_output : 1;
-    uint8_t power_management_shooter_output : 1;
-    uint8_t reserved                        : 5;
+    uint8_t power_management_gimbal_output  : 1; // bit 0: 云台电源输出情况
+    uint8_t power_management_chassis_output : 1; // bit 1: 底盘电源输出情况
+    uint8_t power_management_shooter_output : 1; // bit 2: 发射机构电源输出情况
+    uint8_t reserved                        : 5; // bit 3-7: 保留，补齐1字节
 };
 
 struct sentry_cmd_t
 {
-    // 复活相关指令
-    uint32_t confirm_resurrection       : 1;  // bit 0: 是否确认复活 (0: 确认不复活，1: 确认复活)
-    uint32_t confirm_buy_revive         : 1;  // bit 1: 是否确认兑换立即复活 (0: 不兑换，1: 确认消耗金币兑换)
-
-    // 兑换发弹量相关指令
-    uint32_t buy_projectile_allowance   : 11; // bit 2-12: 将要兑换的发弹量值（需单调递增）
-
-    // 远程请求相关指令
-    uint32_t remote_buy_projectile_times: 4;  // bit 13-16: 远程兑换发弹量的请求次数（需单调递增且每次仅能增加1）
-    uint32_t remote_buy_hp_times        : 4;  // bit 17-20: 远程兑换血量的请求次数（需单调递增且每次仅能增加1）
-
-    // 姿态与机制激活指令
-    uint32_t sentry_posture             : 2;  // bit 21-22: 修改当前姿态指令 (1: 进攻, 2: 防御, 3: 移动, 默认为3)
-    uint32_t confirm_activate_rune      : 1;  // bit 23: 是否确认使能量机关进入正在激活状态 (1为确认，默认为0)
-
-    // 保留位
-    uint32_t reserved                   : 8;  // bit 24-31: 保留位
-}; // 替代原 uint32_t sentry_cmd
-
+    uint32_t confirm_resurrection        : 1;
+    uint32_t confirm_buy_revive          : 1;
+    uint32_t buy_projectile_allowance    : 11;
+    uint32_t remote_buy_projectile_times : 4;
+    uint32_t remote_buy_hp_times         : 4;
+    uint32_t sentry_posture              : 2;
+    uint32_t confirm_activate_rune       : 1;
+    uint32_t reserved                    : 8;
+};
 // 0x0202
 struct power_heat_data_t
 {
@@ -246,41 +241,48 @@ struct projectile_allowance_t
     uint16_t projectile_allowance_fortress;
 };
 
-// [修复] 0x0209 机器人 RFID 状态
+// 0x0209
 struct rfid_status_t
 {
-    uint32_t ally_base_buff                   : 1;
-    uint32_t ally_circular_high               : 1;
-    uint32_t enemy_circular_high              : 1;
-    uint32_t ally_trapezoidal_high            : 1;
-    uint32_t enemy_trapezoidal_high           : 1;
-    uint32_t ally_fly_ramp_front              : 1;
-    uint32_t ally_fly_ramp_back               : 1;
-    uint32_t enemy_fly_ramp_front             : 1;
-    uint32_t enemy_fly_ramp_back              : 1;
-    uint32_t ally_circular_high_down          : 1;
-    uint32_t ally_circular_high_up            : 1;
-    uint32_t enemy_circular_high_down         : 1;
-    uint32_t enemy_circular_high_up           : 1;
-    uint32_t ally_highway_down                : 1;
-    uint32_t ally_highway_up                  : 1;
-    uint32_t enemy_highway_down               : 1;
-    uint32_t enemy_highway_up                 : 1;
-    uint32_t ally_fortress_buff               : 1;
-    uint32_t ally_outpost_buff                : 1;
-    uint32_t ally_supply_no_overlap           : 1;
-    uint32_t ally_supply_overlap              : 1;
-    uint32_t ally_assembly_buff               : 1;
-    uint32_t enemy_assembly_buff              : 1;
-    uint32_t center_buff                      : 1;
-    uint32_t enemy_fortress_buff              : 1;
-    uint32_t enemy_outpost_buff               : 1;
-    uint32_t ally_tunnel_highway_down         : 1;
-    uint32_t ally_tunnel_highway_mid          : 1;
-    uint32_t ally_tunnel_highway_up           : 1;
-    uint32_t ally_tunnel_trapezoidal_low      : 1;
-    uint32_t ally_tunnel_trapezoidal_mid      : 1;
-    uint32_t ally_tunnel_trapezoidal_high     : 1;
+    union
+    {
+        uint32_t rfid_status;
+        struct
+        {
+            uint32_t ally_base_buff              : 1;
+            uint32_t ally_circular_high          : 1;
+            uint32_t enemy_circular_high         : 1;
+            uint32_t ally_trapezoidal_high       : 1;
+            uint32_t enemy_trapezoidal_high      : 1;
+            uint32_t ally_fly_ramp_front         : 1;
+            uint32_t ally_fly_ramp_back          : 1;
+            uint32_t enemy_fly_ramp_front        : 1;
+            uint32_t enemy_fly_ramp_back         : 1;
+            uint32_t ally_circular_high_down     : 1;
+            uint32_t ally_circular_high_up       : 1;
+            uint32_t enemy_circular_high_down    : 1;
+            uint32_t enemy_circular_high_up      : 1;
+            uint32_t ally_highway_down           : 1;
+            uint32_t ally_highway_up             : 1;
+            uint32_t enemy_highway_down          : 1;
+            uint32_t enemy_highway_up            : 1;
+            uint32_t ally_fortress_buff          : 1;
+            uint32_t ally_outpost_buff           : 1;
+            uint32_t ally_supply_no_overlap      : 1;
+            uint32_t ally_supply_overlap         : 1;
+            uint32_t ally_assembly_buff          : 1;
+            uint32_t enemy_assembly_buff         : 1;
+            uint32_t center_buff                 : 1;
+            uint32_t enemy_fortress_buff         : 1;
+            uint32_t enemy_outpost_buff          : 1;
+            uint32_t ally_tunnel_highway_down    : 1;
+            uint32_t ally_tunnel_highway_mid     : 1;
+            uint32_t ally_tunnel_highway_up      : 1;
+            uint32_t ally_tunnel_trapezoidal_low : 1;
+            uint32_t ally_tunnel_trapezoidal_mid : 1;
+            uint32_t ally_tunnel_trapezoidal_high: 1;
+        };
+    };
     uint8_t rfid_status_2;
 };
 
@@ -356,14 +358,15 @@ struct robot_interaction_data_t
     uint8_t user_data[112];
 };
 
-// 0x0307
+// 0x307 map data struct (选手端接收路径数据)
 struct map_data_t
 {
-    uint8_t intention;
-    uint16_t start_position_x;
-    uint16_t start_position_y;
-    int8_t delta_x[49];
-    int8_t delta_y[49];
+    uint8_t intention; // 1：到目标点攻击 2：到目标点防守 3：移动到目标点
+    uint16_t start_position_x; // 路径起点 X 轴坐标，单位：dm
+    uint16_t start_position_y; // 路径起点 Y 轴坐标，单位：dm
+    int8_t delta_x[49];  // 路径点 X 轴增量数组，单位：dm
+    int8_t delta_y[49];  // 路径点 Y 轴增量数组，单位：dm
+    uint16_t sender_id;
 };
 
 // 0x0308
@@ -405,6 +408,5 @@ struct referee_data_t
 #pragma pack(pop)
 
 } // namespace pyro
-
 
 #endif // ROBOMASTER_PROTOCOL_H

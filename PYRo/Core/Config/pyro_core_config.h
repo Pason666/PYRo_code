@@ -10,6 +10,8 @@
 #ifndef __PYRO_CORE_CONFIG_H__
 #define __PYRO_CORE_CONFIG_H__
 
+#include "pyro_bsp_uart.h"
+
 // #define DEMO_MODE 1
 // #define DEBUG_MODE 0
 
@@ -53,18 +55,19 @@
 #define GIMBAL_ID  1
 #define CHASSIS_ID 2
 
-#define BOARD_ID   CHASSIS_ID
+#define BOARD_ID   GIMBAL_ID
 #endif
 
-#define PYRO_UART1 0
-#define PYRO_UART5 1
-#define PYRO_UART7 2
-#define PYRO_UART10 3
+#define PYRO_UART1 pyro::bsp_uart::get_uart1()
+#define PYRO_UART5 pyro::bsp_uart::get_uart5()
+#define PYRO_UART7 pyro::bsp_uart::get_uart7()
+#define PYRO_UART10 pyro::bsp_uart::get_uart10()
 
 #define DR16_UART PYRO_UART5
 #define VT03_UART PYRO_UART1
 
 #define REFEREE_UART PYRO_UART1
+#define SUPERCAP_UART PYRO_UART7
 
 #define VOFA_DEBUG_PORT PYRO_UART10
 #define JCOM_DEBUG_PORT PYRO_UART7

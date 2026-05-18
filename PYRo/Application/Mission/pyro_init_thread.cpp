@@ -1,4 +1,5 @@
 #include "pyro_can_drv.h"
+#include "pyro_bsp_uart.h"
 #include "pyro_rc_hub.h"
 #include "pyro_dwt_drv.h"
 #include "pyro_ins.h"
@@ -20,14 +21,7 @@ extern "C"
     {
         dwt_drv_t::init(480); // Initialize DWT at 480 MHz
         
-        uart_drv_t::get_instance(uart_drv_t::which_uart::uart1)
-            ->enable_rx_dma();
-        uart_drv_t::get_instance(uart_drv_t::which_uart::uart5)
-            ->enable_rx_dma();
-        uart_drv_t::get_instance(uart_drv_t::which_uart::uart7)
-            ->enable_rx_dma();
-        uart_drv_t::get_instance(uart_drv_t::which_uart::uart10)
-            ->enable_rx_dma();
+        bsp_uart::init_all();
 
         rc_hub_t::get_instance(rc_hub_t::DR16)->enable();
         rc_hub_t::get_instance(rc_hub_t::VT03)->enable();

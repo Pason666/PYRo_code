@@ -295,6 +295,9 @@ extern "C"
             40, 41, 42, 43, 44, 45, 46, 47, 48};
 
         referee_data = referee_drv->get_data();
+        referee_drv_t::get_instance()->set_robot_id(referee_data.robot_status.robot_id);
+
+        // 哨兵自主决策相关
         if ((referee_data.sentry_info.sentry_info >> 19 & 0x01))
             sentry_cmd.confirm_resurrection = 1;
         else
@@ -313,11 +316,13 @@ extern "C"
         sentry_cmd.confirm_activate_rune = 0;
         sentry_cmd.reserved = 0;
 
-        map_data.intention        = 1;
+        // 更新地图数据
+        map_data.intention = 1;
         map_data.start_position_x = 0;
         map_data.start_position_y = 0;
-        memcpy(map_data.delta_x, map_delta_x, sizeof(map_data.delta_x));
-        memcpy(map_data.delta_y, map_delta_y, sizeof(map_data.delta_y));
+        memcpy(map_data.delta_x, map_delta_x, sizeof(map_delta_x));
+        memcpy(map_data.delta_y, map_delta_y, sizeof(map_delta_y));
+        map_data.sender_id = referee_data.robot_status.robot_id;
     }
 
     void chassis2gimbal()
@@ -436,7 +441,7 @@ extern "C"
         rud_cfg_ptr = new rud_cfg_t();
         yaw_cmd_ptr = new yaw_cmd_t();
         yaw_cfg_ptr = new yaw_cfg_t();
-        comm        = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
+        comm        = new uart_comm_t(PYRO_UART10, 0x01);
 
         // 注册区域
         mcu2nav_msg.header.sof = 0xA5;

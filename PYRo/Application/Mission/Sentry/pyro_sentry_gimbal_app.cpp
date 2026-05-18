@@ -353,7 +353,7 @@ extern "C"
     {
         gimbal_cmd_ptr = new gimbal_cmd_t();
         gimbal_cfg_ptr = new gimbal_cfg_t();
-        comm           = new uart_comm_t(uart_drv_t::which_uart::uart10, 0x01);
+        comm           = new uart_comm_t(PYRO_UART10, 0x01);
 
         mcu2aim_msg.header.sof  = 0xA5;
         mcu2aim_msg.enter.enter = '\n';

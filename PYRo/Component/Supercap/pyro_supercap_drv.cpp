@@ -8,6 +8,7 @@
 
 #include "pyro_supercap_drv.h"
 #include "pyro_core_dma_heap.h"
+#include "pyro_core_config.h"
 #include "pyro_crc.h"
 #include <cstring>
 
@@ -43,8 +44,11 @@ void supercap_drv_t::supercap_task_t::run_loop()
 /* instance ------------------------------------------------------------------*/
 supercap_drv_t *supercap_drv_t::get_instance()
 {
-    static supercap_drv_t instance(
-        uart_drv_t::get_instance(uart_drv_t::which_uart::uart7));
+#ifdef SUPERCAP_UART
+    static supercap_drv_t instance(&SUPERCAP_UART);
+#else
+    static supercap_drv_t instance(nullptr);
+#endif
     return &instance;
 }
 

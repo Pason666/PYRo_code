@@ -40,16 +40,12 @@ rc_drv_t *rc_hub_t::get_instance(which_rc_t which_rc)
     {
         case DR16:
         {
-            static uart_drv_t *dr16_uart =
-                uart_drv_t::get_instance(static_cast<uart_drv_t::which_uart>(DR16_UART));
-            static dr16_drv_t dr16_rc_drv(dr16_uart);
+            static dr16_drv_t dr16_rc_drv(&DR16_UART);
             return &dr16_rc_drv;
         }
         case VT03:
         {
-            static uart_drv_t *vt03_uart =
-                uart_drv_t::get_instance(static_cast<uart_drv_t::which_uart>(VT03_UART));
-            static vt03_drv_t vt03_rc_drv(vt03_uart);
+            static vt03_drv_t vt03_rc_drv(&VT03_UART);
             return &vt03_rc_drv;
         }
         default:;

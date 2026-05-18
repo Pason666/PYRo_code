@@ -30,7 +30,9 @@ class referee_drv_t
     static constexpr size_t MAX_TX_FRAME_LEN = FRAME_MAX_SIZE;
     static constexpr uint8_t TX_BUFFER_NUM   = 2;
 
+#ifdef REFEREE_UART
     static referee_drv_t *get_instance();
+#endif
 
     // 禁止拷贝
     referee_drv_t(const referee_drv_t &)            = delete;
