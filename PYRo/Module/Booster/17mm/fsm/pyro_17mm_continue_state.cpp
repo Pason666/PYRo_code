@@ -19,6 +19,7 @@ void shoot_17mm_control_t::state_continue_bullet_t::enter(owner *ctx)
     ctx->_ctx.data.target_trig_radps  = TRIGGER_CONTINUOUS_RADPS;
     ctx->_ctx.data.trig_pid_active    = true;
     ctx->_ctx.data.block_start_tick   = 0; // 清零堵转计时
+    ctx->_ctx.data.continue_heat_limited = false;
     ctx->_ctx.data.current_state      = data_ctx_t::state_e::CONTINUE_BULLET;
 }
 
@@ -39,13 +40,45 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
     }
 
     // --- 热控器动态调节安全射频 (关闭时全速) ---
+    bool suppress_continue_cali = false;
     if (ctx->_ctx.cmd->heat_control_on)
-    {    
-        ctx->_ctx.data.target_trig_radps =
+    {
+        const float safe_radps =
             ctx->_ctx.data.heatController.getSafeBurstRadps(TRIGGER_CONTINUOUS_RADPS);
+        const bool heat_limited_now = std::abs(safe_radps) < 0.01f;
+        const bool heat_recovered_now =
+            ctx->_ctx.data.continue_heat_limited && !heat_limited_now;
+
+        ctx->_ctx.data.target_trig_radps = safe_radps;
+
+        if (heat_limited_now)
+        {
+            ctx->_ctx.data.continue_heat_limited = true;
+        }
+        else
+        {
+#if !TRIGGER_CONTINUE_HEAT_RECOVERY_CALI_EN
+            if (heat_recovered_now)
+            {
+                ctx->_ctx.data.suppress_continue_recovery_cali = true;
+                ctx->_ctx.data.block_start_tick = 0;
+            }
+            if (std::abs(ctx->_ctx.data.current_trig_radps) >= 0.3f)
+            {
+                ctx->_ctx.data.suppress_continue_recovery_cali = false;
+            }
+            suppress_continue_cali =
+                ctx->_ctx.data.suppress_continue_recovery_cali;
+#endif
+            ctx->_ctx.data.continue_heat_limited = false;
+        }
     }
     else
+    {
         ctx->_ctx.data.target_trig_radps = TRIGGER_CONTINUOUS_RADPS;
+        ctx->_ctx.data.continue_heat_limited = false;
+        ctx->_ctx.data.suppress_continue_recovery_cali = false;
+    }
 
     // --- 弹速闭环（前10发只采集不闭环，满10发后用均值闭环）---
     if(last_bullet_speed != bullet_speed)
@@ -88,19 +121,33 @@ void shoot_17mm_control_t::state_continue_bullet_t::execute(owner *ctx)
     // --- 堵转检测: 目标速度大但实际极低 ---
     // 模板: speedErr > 50.0f && vel < 10.0f (转子角速度)
     // 换算到拨弹盘: speedErr > 50/36 ≈ 1.4 rad/s, vel < 10/36 ≈ 0.28 rad/s
-    float speed_err = std::abs(ctx->_ctx.data.target_trig_radps) - std::abs(ctx->_ctx.data.current_trig_radps);
-    if (speed_err > 1.4f && std::abs(ctx->_ctx.data.current_trig_radps) < 0.3f)
+    if (!suppress_continue_cali)
     {
-        if (ctx->_ctx.data.block_start_tick == 0)
+        const float speed_err =
+            std::abs(ctx->_ctx.data.target_trig_radps) -
+            std::abs(ctx->_ctx.data.current_trig_radps);
+
+        if (speed_err > std::abs(ctx->_ctx.data.target_trig_radps) *
+                            CALI_BLOCK_THRESHOLD &&
+            std::abs(ctx->_ctx.data.current_trig_radps) < 0.3f)
         {
-            ctx->_ctx.data.block_start_tick = xTaskGetTickCount();
+            if (ctx->_ctx.data.block_start_tick == 0)
+            {
+                ctx->_ctx.data.block_start_tick = xTaskGetTickCount();
+            }
+            else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >=
+                     pdMS_TO_TICKS(CALI_BLOCK_TIME_MS))
+            {
+                // 堵转超时 2000ms, 记录来源状态并进入校准
+                ctx->_ctx.data.jam_source_state =
+                    data_ctx_t::state_e::CONTINUE_BULLET;
+                this->request_switch(&ctx->_state_cali_reverse);
+                return;
+            }
         }
-        else if (xTaskGetTickCount() - ctx->_ctx.data.block_start_tick >= pdMS_TO_TICKS(CALI_BLOCK_TIME_MS))
+        else
         {
-            // 堵转超时 2000ms, 记录来源状态并进入校准
-            ctx->_ctx.data.jam_source_state = data_ctx_t::state_e::CONTINUE_BULLET;
-            this->request_switch(&ctx->_state_cali_reverse);
-            return;
+            ctx->_ctx.data.block_start_tick = 0;
         }
     }
     else
@@ -115,6 +162,8 @@ void shoot_17mm_control_t::state_continue_bullet_t::exit(owner *ctx)
     ctx->_ctx.data.target_fric_radps[0] = -lin_v_to_radps(TARGET_BULLET_SPEED);
     ctx->_ctx.data.target_fric_radps[1] = lin_v_to_radps(TARGET_BULLET_SPEED);
     ctx->_ctx.data.fric_radps_error = 0.0f;
+    ctx->_ctx.data.continue_heat_limited = false;
+    ctx->_ctx.data.suppress_continue_recovery_cali = false;
 
     // --- 清空滑动窗口 ---
     for(uint8_t i = 0; i < data_ctx_t::BULLET_SPEED_WINDOW_SIZE; i++)

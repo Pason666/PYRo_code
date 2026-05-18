@@ -35,6 +35,7 @@ powermeter_drv_t *power_meter;
 powermeter_data power_data;
 
 __attribute__((section(".dma_heap"))) sentry_cmd_t sentry_cmd;
+// __attribute__((section(".dma_heap"))) map_data_t map_data;
 __attribute__((section(".dma_heap"))) nav2mcu_msg_t nav2mcu_msg;
 __attribute__((section(".dma_heap"))) mcu2nav_msg_t mcu2nav_msg;
 
@@ -247,6 +248,7 @@ extern "C"
             rud_cmd_ptr->vy                   = filtered_vy;
             rud_cmd_ptr->wz                   = filtered_wz;
             yaw_cmd_ptr->target_yaw_imu_angle = filtered_yaw;
+            // rud_cmd_ptr->follow_yaw           = false;
             rud_cmd_ptr->follow_yaw           = nav2mcu_msg.data.yaw_align;
             rud_cmd_ptr->is_nav_mode          = true;
         }

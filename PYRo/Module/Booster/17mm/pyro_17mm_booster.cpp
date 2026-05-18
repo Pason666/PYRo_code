@@ -7,6 +7,7 @@
 
 float test_fric_speed[2]{0.0f, 0.0f};
 float test_trig_pos = 0.0f;
+float test_trig_torque = 0.0f;
 float test_heat = 0.0f; // 热量调试变量
 
 namespace pyro
@@ -152,6 +153,7 @@ void shoot_17mm_control_t::_send_motor_command(booster_ctx_t *ctx)
     ctx->booster_cfg.motor.fric[0]->send_torque(ctx->data.out_fric_torque[0]);
     ctx->booster_cfg.motor.fric[1]->send_torque(ctx->data.out_fric_torque[1]);
     ctx->booster_cfg.motor.trigger->send_torque(ctx->data.out_trig_torque);
+    test_trig_torque = ctx->data.out_trig_torque;
 }
 
 } // namespace pyro

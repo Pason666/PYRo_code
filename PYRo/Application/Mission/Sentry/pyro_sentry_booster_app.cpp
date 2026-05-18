@@ -43,7 +43,7 @@ void booster_config(booster_cfg_t &cfg)
     cfg.pid.fric_pid[0]      = new pid_t(0.5f, 0.0f, 0.0f, 0.8f, 20.0f);
     cfg.pid.fric_pid[1]      = new pid_t(0.5f, 0.0f, 0.0f, 0.8f, 20.0f);
     cfg.pid.trig_pos_pid     = new pid_t(30.0f, 0.5f, 0.0f, 3.0f, 20.0f);
-    cfg.pid.trig_spd_pid     = new pid_t(2.1f, 0.02f, 0.0f, 5.0f, 10.0f);
+    cfg.pid.trig_spd_pid     = new pid_t(4.0f, 0.02f, 0.0f, 5.0f, 10.0f);
 }
 
 extern "C"

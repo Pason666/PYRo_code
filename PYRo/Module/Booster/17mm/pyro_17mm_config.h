@@ -1,6 +1,10 @@
 #ifndef __PYRO_PYRO_17MM_CONFIG_H__
 #define __PYRO_PYRO_17MM_CONFIG_H__
 
+#ifndef TRIGGER_CONTINUE_HEAT_RECOVERY_CALI_EN
+#define TRIGGER_CONTINUE_HEAT_RECOVERY_CALI_EN 0
+#endif
+
 namespace pyro
 {
 
@@ -18,7 +22,7 @@ constexpr float TRIGGER_GEAR_RATIO       = 36.0f; // M2006拨弹电机减速比
 constexpr float CALI_REVERSE_RADPS       = -3.0f;  // 校准反转速度 (rad/s)
 constexpr float CALI_FORWARD_TARGET_RAD  = 0;   // 校准正转目标角度 (rad)
 constexpr float CALI_BLOCK_THRESHOLD     = 0.5f;   // 堵转检测速度误差阈值 (50%)
-constexpr uint16_t CALI_BLOCK_TIME_MS    = 700;    // 堵转检测时间阈值 (ms)
+constexpr uint16_t CALI_BLOCK_TIME_MS    = 1000;    // 堵转检测时间阈值 (ms)
 constexpr float CALI_DONE_ANGLE_THRESHOLD = 0.01f;  // 校准完成角度误差阈值 (rad)
 
 static constexpr float WHEEL_RADIUS = 0.03f;

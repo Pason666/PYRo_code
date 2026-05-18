@@ -39,10 +39,34 @@ void shoot_17mm_control_t::state_ready_shoot_t::execute(owner *ctx)
     // --- 连发触发: 热量不足则忽略 ---
     if (ctx->_ctx.cmd->continue_shoot)
     {
-        if (!ctx->_ctx.cmd->heat_control_on || ctx->_ctx.data.heatController.canShootSingle())
+        const bool can_continue =
+            !ctx->_ctx.cmd->heat_control_on ||
+            ctx->_ctx.data.heatController.canShootSingle();
+
+        if (can_continue)
         {
+#if !TRIGGER_CONTINUE_HEAT_RECOVERY_CALI_EN
+            if (ctx->_ctx.cmd->heat_control_on &&
+                ctx->_ctx.data.continue_heat_limited)
+            {
+                ctx->_ctx.data.suppress_continue_recovery_cali = true;
+                ctx->_ctx.data.block_start_tick = 0;
+            }
+#endif
+            ctx->_ctx.data.continue_heat_limited = false;
             this->request_switch(&ctx->_state_continue_bullet);
         }
+        else
+        {
+            ctx->_ctx.data.continue_heat_limited = true;
+            ctx->_ctx.data.suppress_continue_recovery_cali = false;
+            ctx->_ctx.data.block_start_tick = 0;
+        }
+    }
+    else
+    {
+        ctx->_ctx.data.continue_heat_limited = false;
+        ctx->_ctx.data.suppress_continue_recovery_cali = false;
     }
 }
 
