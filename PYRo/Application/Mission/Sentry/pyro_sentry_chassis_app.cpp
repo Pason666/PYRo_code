@@ -2,6 +2,8 @@
 #include "pyro_core_def.h"
 #if BOARD_ID == CHASSIS_ID
 
+#define VARIABLE_SPINNING_EN 0
+
 #include "pyro_module_base.h"
 #include "pyro_rud_chassis.h"
 #include "pyro_mutex.h"
@@ -139,6 +141,46 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
 
 extern "C"
 {
+    void spinning_top_control()
+    {
+        constexpr float SLOW_SPIN_WZ             = 1.0f;
+        constexpr float HIT_SPIN_WZ              = 6.0f;
+        constexpr TickType_t HIT_SPIN_HOLD_TICKS = pdMS_TO_TICKS(8000);
+
+        static uint16_t last_hp      = 0;
+        static bool hp_initialized   = false;
+        static bool hit_speed_active = false;
+        static TickType_t hit_tick   = 0;
+
+        const uint16_t current_hp    = referee_data.robot_status.current_hp;
+        const TickType_t now         = xTaskGetTickCount();
+
+        #if VARIABLE_SPINNING_EN == 1
+        if (!hp_initialized)
+        {
+            last_hp        = current_hp;
+            hp_initialized = true;
+        }
+
+        if (current_hp < last_hp)
+        {
+            hit_tick         = now;
+            hit_speed_active = true;
+        }
+
+        if (hit_speed_active && now - hit_tick < HIT_SPIN_HOLD_TICKS)
+            rud_cmd_ptr->wz = HIT_SPIN_WZ;
+        else
+        {
+            rud_cmd_ptr->wz  = SLOW_SPIN_WZ;
+            hit_speed_active = false;
+        }
+        #else
+        rud_cmd_ptr->wz = HIT_SPIN_WZ;
+        #endif
+
+        last_hp = current_hp;
+    }
 
     void gimbal2chassis()
     {
@@ -158,7 +200,6 @@ extern "C"
         // ====================
         static float filtered_vx          = 0.0f;
         static float filtered_vy          = 0.0f;
-        static float filtered_wz          = 0.0f;
         static float filtered_yaw         = 0.0f;
         // 滤波系数：0~1，越大越平滑，越小响应越快（推荐 0.1~0.3）
         constexpr float LPF_ALPHA         = 0.15f;
@@ -226,30 +267,31 @@ extern "C"
         else
         {
             // 【导航模式】使用导航模块数据 + 低通滤波平滑
-            float raw_vx, raw_vy, raw_wz, raw_yaw;
+            float raw_vx, raw_vy, raw_yaw;
 
             if (abs(nav2mcu_msg.data.vx) <= 2)
                 raw_vx = nav2mcu_msg.data.vx;
             if (abs(nav2mcu_msg.data.vy) <= 2)
                 raw_vy = nav2mcu_msg.data.vy;
-            if (abs(nav2mcu_msg.data.wz) <= 10)
-                raw_wz = nav2mcu_msg.data.wz;
             raw_yaw     = nav2mcu_msg.data.yaw;
 
             // 一阶低通滤波公式：本次滤波值 = 系数*新值 + (1-系数)*上次滤波值
             filtered_vx = LPF_ALPHA * raw_vx + (1.0f - LPF_ALPHA) * filtered_vx;
             filtered_vy = LPF_ALPHA * raw_vy + (1.0f - LPF_ALPHA) * filtered_vy;
-            filtered_wz = LPF_ALPHA * raw_wz + (1.0f - LPF_ALPHA) * filtered_wz;
             filtered_yaw =
                 LPF_ALPHA * raw_yaw + (1.0f - LPF_ALPHA) * filtered_yaw;
 
             // 使用滤波后的值给底盘和Yaw
             rud_cmd_ptr->vx                   = filtered_vx;
             rud_cmd_ptr->vy                   = filtered_vy;
-            rud_cmd_ptr->wz                   = filtered_wz;
-            yaw_cmd_ptr->target_yaw_imu_angle = filtered_yaw;
-            // rud_cmd_ptr->follow_yaw           = false;
             rud_cmd_ptr->follow_yaw           = nav2mcu_msg.data.yaw_align;
+            // rud_cmd_ptr->follow_yaw           = false;
+            spinning_top_control();
+            if (rud_cmd_ptr->follow_yaw || nav2mcu_msg.data.wz != 1.0f)
+            {
+                rud_cmd_ptr->wz               = 0;
+            }
+            yaw_cmd_ptr->target_yaw_imu_angle = filtered_yaw;
             rud_cmd_ptr->is_nav_mode          = true;
         }
         test_vx                = rud_cmd_ptr->vx;
