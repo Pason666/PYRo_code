@@ -124,6 +124,8 @@ class shoot_17mm_control_t final
         state_e target_state_after_cali = state_e::READY_SHOOT; // 校准完成后目标状态
 
         float fric_radps_error{}; // 供连发状态记录当前弹速误差
+        bool continue_heat_limited{}; // 连发热量限制导致拨弹目标速度为0
+        bool suppress_continue_recovery_cali{}; // 热量恢复连发阶段跳过校准
 
         // --- 弹速滑动窗口 ---
         static constexpr uint8_t BULLET_SPEED_WINDOW_SIZE = 8;

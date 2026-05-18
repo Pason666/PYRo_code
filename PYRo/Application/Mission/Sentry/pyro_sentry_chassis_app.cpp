@@ -35,6 +35,7 @@ powermeter_drv_t *power_meter;
 powermeter_data power_data;
 
 __attribute__((section(".dma_heap"))) sentry_cmd_t sentry_cmd;
+__attribute__((section(".dma_heap"))) map_data_t map_data;
 __attribute__((section(".dma_heap"))) nav2mcu_msg_t nav2mcu_msg;
 __attribute__((section(".dma_heap"))) mcu2nav_msg_t mcu2nav_msg;
 
@@ -130,7 +131,7 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.motor.yaw->set_rotate_range(-20, 20);
     yaw_cfg.motor.yaw->set_torque_range(-12.5, 12.5);
 
-    yaw_cfg.pid.yaw_pos_pid = new pid_t(20, 0, 1.0, 1, 80);
+    yaw_cfg.pid.yaw_pos_pid = new pid_t(20, 0, 1.5, 1, 80);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(2, 0, 0, 2, 12);
 
     yaw_cfg.yaw_offset      = 2.75023007f;
@@ -199,6 +200,7 @@ extern "C"
         // ==================== 7. 分支：导航使能/禁用 → 更新控制量
         // ====================
         if (!is_nav_enable)
+        // if (1)
         {
             // 【非导航模式】使用CAN原始数据控制
             rud_cmd_ptr->vx =
@@ -279,6 +281,19 @@ extern "C"
 
     void referee_process(const referee_drv_t *referee_drv)
     {
+        static const int8_t map_delta_x[49] = {
+            0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+            30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+            40, 41, 42, 43, 44, 45, 46, 47, 48};
+        static const int8_t map_delta_y[49] = {
+            0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+            20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+            30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+            40, 41, 42, 43, 44, 45, 46, 47, 48};
+
         referee_data = referee_drv->get_data();
         if ((referee_data.sentry_info.sentry_info >> 19 & 0x01))
             sentry_cmd.confirm_resurrection = 1;
@@ -297,6 +312,12 @@ extern "C"
 
         sentry_cmd.confirm_activate_rune = 0;
         sentry_cmd.reserved = 0;
+
+        map_data.intention        = 1;
+        map_data.start_position_x = 0;
+        map_data.start_position_y = 0;
+        memcpy(map_data.delta_x, map_delta_x, sizeof(map_data.delta_x));
+        memcpy(map_data.delta_y, map_delta_y, sizeof(map_data.delta_y));
     }
 
     void chassis2gimbal()
@@ -386,6 +407,7 @@ extern "C"
             {
                 referee_drv_t::get_instance()->send_robot_interaction(
                     0x8080, 0x0120, &sentry_cmd, sizeof(sentry_cmd));
+                referee_drv_t::get_instance()->send_map_data(map_data);
                 referee_counter = 0;
             }
 

@@ -69,6 +69,7 @@ class referee_drv_t
 
     bool send_robot_interaction(uint16_t receiver_id, uint16_t sub_cmd_id,
                                 const void *data, uint16_t len);
+    bool send_map_data(const map_data_t &data);
     bool send_ui_interaction(uint16_t sub_cmd_id, const void *data);
     bool send_custom_info(const char *message);
 

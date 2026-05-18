@@ -117,34 +117,21 @@ struct game_robot_hp_t
     uint16_t base_hp;
 };
 
-// 0x0101
+// [修复] 0x0101 场地事件数据
 struct event_data_t
 {
-    // 补给区占领状态
-    uint32_t supply_zone                 : 1; // bit 0: 己方与补给区占领状态，1为已占领
-    uint32_t reserved_1                  : 1; // bit 1: 保留位
-    uint32_t rmul_supply_zone            : 1; // bit 2: 己方补给区的占领状态，1为已占领(仅RMUL适用)
-
-    // 能量机关状态
-    uint32_t small_energy_mechanism      : 2; // bit 3-4: 己方小能量机关的激活状态 (0:未激活, 1:已激活, 2:正在激活)
-    uint32_t big_energy_mechanism        : 2; // bit 5-6: 己方大能量机关的激活状态 (0:未激活, 1:已激活, 2:正在激活)
-
-    // 高地占领状态
-    uint32_t central_high_ground         : 2; // bit 7-8: 己方中央高地的占领状态 (1:被己方占领, 2:被对方占领)
-    uint32_t trapezoidal_high_ground     : 2; // bit 9-10: 己方梯形高地的占领状态，1为已占领
-
-    // 飞镖击打状态
-    uint32_t dart_hit_time               : 9; // bit 11-19: 对方飞镖最后一次击中己方前哨站或基地的时间 (0-420)
-    uint32_t dart_hit_target             : 3; // bit 20-22: 对方飞镖最后一次击中具体目标 (1:前哨站, 2:基地固定, 3:基地随机固定, 4:基地随机移动, 5:基地末端移动)
-
-    // 增益点占领状态
-    uint32_t central_buff_point          : 2; // bit 23-24: 中心增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领, 3:双方占领，仅RMUL适用)
-    uint32_t fortress_buff_point         : 2; // bit 25-26: 己方堡垒增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领, 3:双方占领)
-    uint32_t outpost_buff_point          : 2; // bit 27-28: 己方前哨站增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领)
-    uint32_t base_buff_point             : 1; // bit 29: 己方基地增益点的占领状态，1为已占领
-
-    // 保留位
-    uint32_t reserved                    : 2; // bit 30-31: 保留位
+    uint32_t supply_zone                : 3; // bit 0-2: 己方补给区的占领状态
+    uint32_t energy_mechanism_small     : 2; // bit 3-4: 己方小能量机关的激活状态
+    uint32_t energy_mechanism_big       : 2; // bit 5-6: 己方大能量机关的激活状态
+    uint32_t circular_high_ground       : 2; // bit 7-8: 己方中央高地的占领状态
+    uint32_t trapezoidal_high_ground    : 2; // bit 9-10: 己方梯形高地的占领状态
+    uint32_t dart_last_hit_time         : 9; // bit 11-19: 对方飞镖最后一次击中己方前哨站或基地的时间
+    uint32_t dart_last_hit_target       : 3; // bit 20-22: 对方飞镖最后一次击中己方前哨站或基地的具体目标
+    uint32_t center_buff_zone           : 2; // bit 23-24: 中心增益点的占领状态
+    uint32_t fortress_buff_zone         : 2; // bit 25-26: 己方堡垒增益点的占领状态
+    uint32_t outpost_buff_zone          : 2; // bit 27-28: 己方前哨站增益点的占领状态
+    uint32_t base_buff_zone             : 1; // bit 29: 己方基地增益点的占领状态
+    uint32_t reserved                   : 2; // bit 30-31: 保留
 };
 
 // 0x0104
@@ -155,21 +142,14 @@ struct referee_warning_t
     uint8_t count;
 };
 
-// 0x0105
+// [修复] 0x0105 飞镖信息
 struct dart_info_t
 {
     uint8_t dart_remaining_time;
-    union
-    {
-        uint16_t dart_info;
-        struct
-        {
-            uint16_t dart_last_hit_target  : 3;
-            uint16_t dart_target_hit_count : 3;
-            uint16_t dart_aim_target       : 3;
-            uint16_t reserved              : 7;
-        };
-    };
+    uint16_t dart_last_hit_target  : 3;
+    uint16_t dart_target_hit_count : 3;
+    uint16_t dart_aim_target       : 3;
+    uint16_t reserved              : 7;
 };
 
 // 0x0201
@@ -266,48 +246,41 @@ struct projectile_allowance_t
     uint16_t projectile_allowance_fortress;
 };
 
-// 0x0209
+// [修复] 0x0209 机器人 RFID 状态
 struct rfid_status_t
 {
-    union
-    {
-        uint32_t rfid_status;
-        struct
-        {
-            uint32_t ally_base_buff              : 1;
-            uint32_t ally_circular_high          : 1;
-            uint32_t enemy_circular_high         : 1;
-            uint32_t ally_trapezoidal_high       : 1;
-            uint32_t enemy_trapezoidal_high      : 1;
-            uint32_t ally_fly_ramp_front         : 1;
-            uint32_t ally_fly_ramp_back          : 1;
-            uint32_t enemy_fly_ramp_front        : 1;
-            uint32_t enemy_fly_ramp_back         : 1;
-            uint32_t ally_circular_high_down     : 1;
-            uint32_t ally_circular_high_up       : 1;
-            uint32_t enemy_circular_high_down    : 1;
-            uint32_t enemy_circular_high_up      : 1;
-            uint32_t ally_highway_down           : 1;
-            uint32_t ally_highway_up             : 1;
-            uint32_t enemy_highway_down          : 1;
-            uint32_t enemy_highway_up            : 1;
-            uint32_t ally_fortress_buff          : 1;
-            uint32_t ally_outpost_buff           : 1;
-            uint32_t ally_supply_no_overlap      : 1;
-            uint32_t ally_supply_overlap         : 1;
-            uint32_t ally_assembly_buff          : 1;
-            uint32_t enemy_assembly_buff         : 1;
-            uint32_t center_buff                 : 1;
-            uint32_t enemy_fortress_buff         : 1;
-            uint32_t enemy_outpost_buff          : 1;
-            uint32_t ally_tunnel_highway_down    : 1;
-            uint32_t ally_tunnel_highway_mid     : 1;
-            uint32_t ally_tunnel_highway_up      : 1;
-            uint32_t ally_tunnel_trapezoidal_low : 1;
-            uint32_t ally_tunnel_trapezoidal_mid : 1;
-            uint32_t ally_tunnel_trapezoidal_high: 1;
-        };
-    };
+    uint32_t ally_base_buff                   : 1;
+    uint32_t ally_circular_high               : 1;
+    uint32_t enemy_circular_high              : 1;
+    uint32_t ally_trapezoidal_high            : 1;
+    uint32_t enemy_trapezoidal_high           : 1;
+    uint32_t ally_fly_ramp_front              : 1;
+    uint32_t ally_fly_ramp_back               : 1;
+    uint32_t enemy_fly_ramp_front             : 1;
+    uint32_t enemy_fly_ramp_back              : 1;
+    uint32_t ally_circular_high_down          : 1;
+    uint32_t ally_circular_high_up            : 1;
+    uint32_t enemy_circular_high_down         : 1;
+    uint32_t enemy_circular_high_up           : 1;
+    uint32_t ally_highway_down                : 1;
+    uint32_t ally_highway_up                  : 1;
+    uint32_t enemy_highway_down               : 1;
+    uint32_t enemy_highway_up                 : 1;
+    uint32_t ally_fortress_buff               : 1;
+    uint32_t ally_outpost_buff                : 1;
+    uint32_t ally_supply_no_overlap           : 1;
+    uint32_t ally_supply_overlap              : 1;
+    uint32_t ally_assembly_buff               : 1;
+    uint32_t enemy_assembly_buff              : 1;
+    uint32_t center_buff                      : 1;
+    uint32_t enemy_fortress_buff              : 1;
+    uint32_t enemy_outpost_buff               : 1;
+    uint32_t ally_tunnel_highway_down         : 1;
+    uint32_t ally_tunnel_highway_mid          : 1;
+    uint32_t ally_tunnel_highway_up           : 1;
+    uint32_t ally_tunnel_trapezoidal_low      : 1;
+    uint32_t ally_tunnel_trapezoidal_mid      : 1;
+    uint32_t ally_tunnel_trapezoidal_high     : 1;
     uint8_t rfid_status_2;
 };
 
@@ -381,6 +354,16 @@ struct robot_interaction_data_t
 {
     interaction_header_t header;
     uint8_t user_data[112];
+};
+
+// 0x0307
+struct map_data_t
+{
+    uint8_t intention;
+    uint16_t start_position_x;
+    uint16_t start_position_y;
+    int8_t delta_x[49];
+    int8_t delta_y[49];
 };
 
 // 0x0308

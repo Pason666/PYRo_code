@@ -78,8 +78,8 @@ class HeatController
         // 条件1：热量 ≥ 过热阈值 → 强制低速
         if (_localHeat + HEAT_PER_BULLET >= heat_upper)
         {
-            last_output = -maxRadps * 0.12f;
-            return -maxRadps * 0.12f;
+            last_output = 0;
+            return 0;
         }
         // 条件2：热量 ≤ 安全阈值 → 恢复最大转速
         else if (_localHeat <= heat_lower)

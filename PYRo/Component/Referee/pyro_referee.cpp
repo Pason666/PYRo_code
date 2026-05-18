@@ -10,6 +10,9 @@
 #include "pyro_core_dma_heap.h"
 #include <cstring> // for memcpy, strlen
 
+uint8_t test_current_tx_buf[200];
+uint16_t test_current_tx_len = 0;
+
 namespace pyro
 {
 
@@ -190,6 +193,12 @@ bool referee_drv_t::send_packet(cmd_id cmd_id_val, const void *data,
         return false;
     }
 
+    test_current_tx_len = frame_total_len;
+    const size_t debug_copy_len =
+        frame_total_len < sizeof(test_current_tx_buf)
+            ? frame_total_len
+            : sizeof(test_current_tx_buf);
+    memcpy(test_current_tx_buf, current_tx_buf, debug_copy_len);
     if (_uart->write(current_tx_buf, frame_total_len) != PYRO_OK)
     {
         xSemaphoreGive(_tx_cplt_sem);
@@ -237,6 +246,14 @@ bool referee_drv_t::send_robot_interaction(const uint16_t receiver_id,
         return false;
 
     return _send_interaction_packet_base(sub_cmd_id, receiver_id, data, len);
+}
+
+bool referee_drv_t::send_map_data(const map_data_t &data)
+{
+    if (_robot_id == 0)
+        return false;
+
+    return send_packet(cmd_id::MAP_RECEIVE_PATH, &data, sizeof(data));
 }
 
 bool referee_drv_t::send_ui_interaction(const uint16_t sub_cmd_id,
