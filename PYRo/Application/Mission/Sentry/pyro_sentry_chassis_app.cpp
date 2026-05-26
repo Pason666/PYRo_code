@@ -3,6 +3,10 @@
 #if BOARD_ID == CHASSIS_ID
 
 #define VARIABLE_SPINNING_EN 1
+#define SENTRY_RIGHT_DOWN_NAV 0
+#define SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M 1
+#define SENTRY_RIGHT_DOWN_ODOM_SEQUENCE 2
+#define SENTRY_RIGHT_DOWN_MODE SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
 
 #include "pyro_module_base.h"
 #include "pyro_rud_chassis.h"
@@ -143,7 +147,7 @@ extern "C"
 {
     void spinning_top_control()
     {
-        constexpr float SLOW_SPIN_WZ             = 2.0f;
+        constexpr float SLOW_SPIN_WZ             = 1.0f;
         constexpr float HIGH_SPIN_WZ             = 8.0f;
         constexpr float HIT_SPIN_WZ              = 5.0f;
         constexpr TickType_t HIT_SPIN_HOLD_TICKS = pdMS_TO_TICKS(8000);
@@ -203,11 +207,34 @@ extern "C"
         // 数据转换系数
         constexpr float VEL_SCALE         = 2.0f / 127.0f;    // 速度比例系数
         constexpr float YAW_ANGLE_SCALE   = 0.0075f / 127.0f; // Yaw角度微调系数
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
+        constexpr float ODOM_FORWARD_DISTANCE_M = 1.0f;
+#endif
+#if SENTRY_RIGHT_DOWN_MODE >= SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
+        constexpr float ODOM_FORWARD_SPEED_MPS =
+            rud_chassis_t::ODOM_DEFAULT_SPEED_MPS;
+#endif
         // ==================== 导航数据低通滤波 静态变量（只初始化一次）
         // ====================
         static float filtered_vx          = 0.0f;
         static float filtered_vy          = 0.0f;
         static float filtered_yaw         = 0.0f;
+#if SENTRY_RIGHT_DOWN_MODE >= SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
+        static bool odom_request_last      = false;
+#endif
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
+        enum class seq_step_t : uint8_t
+        {
+            IDLE,
+            DELAY,
+            FORWARD_5M,
+            LEFT_3M,
+            FORWARD_5M_2,
+            DONE
+        };
+        static seq_step_t seq_step           = seq_step_t::IDLE;
+        static TickType_t seq_delay_start    = 0;
+#endif
         // 滤波系数：0~1，越大越平滑，越小响应越快（推荐 0.1~0.3）
         constexpr float LPF_ALPHA         = 0.15f;
 
@@ -234,7 +261,12 @@ extern "C"
 
         // ==================== 5. 设置导航使能 & 底盘跟随Yaw
         // ====================
-        yaw_cmd_ptr->nav_enable   = is_nav_enable;
+        yaw_cmd_ptr->nav_enable =
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_NAV
+            is_nav_enable;
+#else
+            false;
+#endif
         rud_cmd_ptr->follow_yaw   = is_follow_yaw;
 
         // ==================== 6. Yaw轴被动模式：锁定目标角度为当前角度
@@ -249,6 +281,21 @@ extern "C"
         // ====================
         if (!is_nav_enable)
         {
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
+            // 拨杆关闭 → 停止里程计
+            if (odom_request_last)
+            {
+                rud_chassis_ptr->stop_distance_move();
+                odom_request_last = false;
+            }
+#elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
+            // 拨杆关闭 → 取消序列
+            if (seq_step != seq_step_t::IDLE)
+            {
+                rud_chassis_ptr->stop_distance_move();
+                seq_step = seq_step_t::IDLE;
+            }
+#endif
             // 【非导航模式】使用CAN原始数据控制
             rud_cmd_ptr->vx =
                 static_cast<float>(static_cast<int8_t>(raw_data[0])) *
@@ -273,6 +320,7 @@ extern "C"
         }
         else
         {
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_NAV
             // 【导航模式】使用导航模块数据 + 低通滤波平滑
             float raw_vx, raw_vy, raw_yaw;
 
@@ -300,6 +348,137 @@ extern "C"
             }
             yaw_cmd_ptr->target_yaw_imu_angle = filtered_yaw;
             rud_cmd_ptr->is_nav_mode          = true;
+#elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
+            const bool odom_request =
+                rud_cmd_ptr->mode == cmd_base_t::mode_t::ACTIVE;
+
+            rud_cmd_ptr->vx          = 0.0f;
+            rud_cmd_ptr->vy          = 0.0f;
+            rud_cmd_ptr->wz          = 0.0f;
+            rud_cmd_ptr->follow_yaw  = false;
+            rud_cmd_ptr->is_nav_mode = false;
+
+            if (odom_request && !odom_request_last)
+            {
+                rud_chassis_ptr->move_distance(
+                    rud_chassis_t::move_direction_t::LEFT,
+                    ODOM_FORWARD_DISTANCE_M, ODOM_FORWARD_SPEED_MPS);
+            }
+            else if (!odom_request && odom_request_last)
+            {
+                rud_chassis_ptr->stop_distance_move();
+            }
+            odom_request_last = odom_request;
+#elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
+            // 拨杆 ON (is_nav_enable=1) → 触发移动序列: 延时→直走5m→左走3m→直走5m
+            {
+                constexpr TickType_t SEQ_DELAY_TICKS = pdMS_TO_TICKS(1500);
+                constexpr float SEQ_DIST_5M           = 1.0f;
+                constexpr float SEQ_DIST_3M           = 1.0f;
+                constexpr float SEQ_SPEED             = ODOM_FORWARD_SPEED_MPS;
+
+                const bool nav_trigger =
+                    rud_cmd_ptr->mode == cmd_base_t::mode_t::ACTIVE;
+
+                // 拨杆 OFF 或切 PASSIVE → 取消序列
+                if (!nav_trigger && seq_step != seq_step_t::IDLE)
+                {
+                    rud_chassis_ptr->stop_distance_move();
+                    seq_step = seq_step_t::IDLE;
+                }
+
+                switch (seq_step)
+                {
+                case seq_step_t::IDLE:
+                    if (nav_trigger)
+                    {
+                        seq_step         = seq_step_t::DELAY;
+                        seq_delay_start  = xTaskGetTickCount();
+                    }
+                    break;
+
+                case seq_step_t::DELAY:
+                    if (!nav_trigger)
+                    {
+                        seq_step = seq_step_t::IDLE;
+                    }
+                    else if (xTaskGetTickCount() - seq_delay_start >=
+                             SEQ_DELAY_TICKS)
+                    {
+                        rud_chassis_ptr->move_distance(
+                            rud_chassis_t::move_direction_t::FORWARD,
+                            SEQ_DIST_5M, SEQ_SPEED);
+                        seq_step = seq_step_t::FORWARD_5M;
+                    }
+                    break;
+
+                case seq_step_t::FORWARD_5M:
+                    if (!nav_trigger)
+                    {
+                        rud_chassis_ptr->stop_distance_move();
+                        seq_step = seq_step_t::IDLE;
+                    }
+                    else if (!rud_chassis_ptr->is_distance_move_active())
+                    {
+                        rud_chassis_ptr->move_distance(
+                            rud_chassis_t::move_direction_t::LEFT,
+                            SEQ_DIST_3M, SEQ_SPEED);
+                        seq_step = seq_step_t::LEFT_3M;
+                    }
+                    break;
+
+                case seq_step_t::LEFT_3M:
+                    if (!nav_trigger)
+                    {
+                        rud_chassis_ptr->stop_distance_move();
+                        seq_step = seq_step_t::IDLE;
+                    }
+                    else if (!rud_chassis_ptr->is_distance_move_active())
+                    {
+                        rud_chassis_ptr->move_distance(
+                            rud_chassis_t::move_direction_t::FORWARD,
+                            SEQ_DIST_5M, SEQ_SPEED);
+                        seq_step = seq_step_t::FORWARD_5M_2;
+                    }
+                    break;
+
+                case seq_step_t::FORWARD_5M_2:
+                    if (!nav_trigger)
+                    {
+                        rud_chassis_ptr->stop_distance_move();
+                        seq_step = seq_step_t::IDLE;
+                    }
+                    else if (!rud_chassis_ptr->is_distance_move_active())
+                    {
+                        seq_step = seq_step_t::DONE;
+                    }
+                    break;
+
+                case seq_step_t::DONE:
+                    if (!nav_trigger)
+                    {
+                        seq_step = seq_step_t::IDLE;
+                    }
+                    break;
+                }
+            }
+
+            rud_cmd_ptr->vx          = 0.0f;
+            rud_cmd_ptr->vy          = 0.0f;
+            rud_cmd_ptr->follow_yaw  = false;
+            rud_cmd_ptr->is_nav_mode = false;
+
+            if (seq_step == seq_step_t::DONE)
+            {
+                spinning_top_control();
+            }
+            else
+            {
+                rud_cmd_ptr->wz = 0.0f;
+            }
+#else
+#error "Unsupported SENTRY_RIGHT_DOWN_MODE"
+#endif
         }
         test_vx                = rud_cmd_ptr->vx;
         test_vy                = rud_cmd_ptr->vy;

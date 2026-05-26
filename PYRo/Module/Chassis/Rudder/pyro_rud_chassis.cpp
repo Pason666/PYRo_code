@@ -1,7 +1,19 @@
 #include "pyro_rud_chassis.h"
+#include <cmath>
+#include <vector>
 
 namespace pyro
 {
+namespace
+{
+constexpr float ODOM_MIN_SPEED_MPS  = 0.05f;
+constexpr float ODOM_MAX_SPEED_MPS  = 2.0f;
+constexpr float ODOM_STOP_TOLERANCE = 0.01f;
+constexpr float ODOM_DECEL_DISTANCE = 0.20f;
+constexpr float ODOM_FALLBACK_DT_S  = 0.001f;
+constexpr float ODOM_MAX_DT_S       = 0.02f;
+} // namespace
+
 supercap_drv_t::cap_feedback_t test_cap_feedback{};
 float test_chassis_power_cap{};
 float test_cap_power_cap{};
@@ -41,6 +53,97 @@ status_t rud_chassis_t::_init()
     _ctx.hardware.power_meter = new powermeter_drv_t(0x212, can_hub_t::can2);
     _ctx.power.data           = new powermeter_data();
     return PYRO_OK;
+}
+
+status_t rud_chassis_t::move_distance(move_direction_t direction,
+                                      float distance_m, float speed_mps)
+{
+    if (distance_m <= 0.0f || speed_mps <= 0.0f)
+    {
+        return PYRO_PARAM_ERROR;
+    }
+
+    float direction_vx = 0.0f;
+    float direction_vy = 0.0f;
+    _direction_to_vector(direction, direction_vx, direction_vy);
+    if (direction_vx == 0.0f && direction_vy == 0.0f)
+    {
+        return PYRO_PARAM_ERROR;
+    }
+
+    if (speed_mps < ODOM_MIN_SPEED_MPS)
+    {
+        speed_mps = ODOM_MIN_SPEED_MPS;
+    }
+    else if (speed_mps > ODOM_MAX_SPEED_MPS)
+    {
+        speed_mps = ODOM_MAX_SPEED_MPS;
+    }
+
+    scoped_mutex_t lock(get_mutex());
+    _ctx.odom.active             = true;
+    _ctx.odom.direction          = direction;
+    _ctx.odom.direction_vx       = direction_vx;
+    _ctx.odom.direction_vy       = direction_vy;
+    _ctx.odom.target_distance    = distance_m;
+    _ctx.odom.travelled_distance = 0.0f;
+    _ctx.odom.speed_mps          = speed_mps;
+    _ctx.odom.last_tick          = xTaskGetTickCount();
+
+    _current_cmd.mode        = cmd_base_t::mode_t::ACTIVE;
+    _current_cmd.vx          = 0.0f;
+    _current_cmd.vy          = 0.0f;
+    _current_cmd.wz          = 0.0f;
+    _current_cmd.follow_yaw  = false;
+    _current_cmd.is_nav_mode = false;
+    _current_cmd.timestamp   = _ctx.odom.last_tick;
+
+    return PYRO_OK;
+}
+
+void rud_chassis_t::stop_distance_move()
+{
+    scoped_mutex_t lock(get_mutex());
+    _ctx.odom.active = false;
+    _current_cmd.vx  = 0.0f;
+    _current_cmd.vy  = 0.0f;
+    _current_cmd.wz  = 0.0f;
+}
+
+bool rud_chassis_t::is_distance_move_active() const
+{
+    return _ctx.odom.active;
+}
+
+float rud_chassis_t::get_distance_move_remaining() const
+{
+    const float remaining =
+        _ctx.odom.target_distance - _ctx.odom.travelled_distance;
+    return remaining > 0.0f ? remaining : 0.0f;
+}
+
+void rud_chassis_t::_direction_to_vector(move_direction_t direction, float &vx,
+                                         float &vy)
+{
+    vx = 0.0f;
+    vy = 0.0f;
+    switch (direction)
+    {
+    case move_direction_t::FORWARD:
+        vy = 1.0f;
+        break;
+    case move_direction_t::BACKWARD:
+        vy = -1.0f;
+        break;
+    case move_direction_t::LEFT:
+        vx = -1.0f;
+        break;
+    case move_direction_t::RIGHT:
+        vx = 1.0f;
+        break;
+    default:
+        break;
+    }
 }
 
 void rud_chassis_t::_update_feedback()
@@ -120,14 +223,96 @@ void rud_chassis_t::_update_feedback()
     test_cap_power_cap = test_cap_feedback.cap_power_cap / 100.0f - 250;
 }
 
+void rud_chassis_t::_update_odometry_distance()
+{
+    if (!_ctx.odom.active)
+    {
+        return;
+    }
+
+    const TickType_t now_tick = xTaskGetTickCount();
+    TickType_t delta_tick     = now_tick - _ctx.odom.last_tick;
+    _ctx.odom.last_tick       = now_tick;
+
+    float dt_s                = ODOM_FALLBACK_DT_S;
+    if (delta_tick > 0)
+    {
+        dt_s = static_cast<float>(delta_tick) *
+               static_cast<float>(portTICK_PERIOD_MS) * 0.001f;
+        if (dt_s > ODOM_MAX_DT_S)
+        {
+            dt_s = ODOM_FALLBACK_DT_S;
+        }
+    }
+
+    float vx = 0.0f;
+    float vy = 0.0f;
+    for (int i = 0; i < 4; i++)
+    {
+        const float angle = _ctx.data.current_states.modules[i].angle;
+        const float speed = _ctx.data.current_states.modules[i].speed;
+        vx += speed * sinf(angle);
+        vy += speed * cosf(angle);
+    }
+    vx *= 0.25f;
+    vy *= 0.25f;
+
+    const float distance_delta =
+        (vx * _ctx.odom.direction_vx + vy * _ctx.odom.direction_vy) * dt_s;
+    if (distance_delta > 0.0f)
+    {
+        _ctx.odom.travelled_distance += distance_delta;
+    }
+}
+
+void rud_chassis_t::_apply_odometry_control(float &vx, float &vy, float &wz)
+{
+    if (!_ctx.odom.active)
+    {
+        return;
+    }
+
+    _update_odometry_distance();
+
+    const float remaining =
+        _ctx.odom.target_distance - _ctx.odom.travelled_distance;
+    if (remaining <= ODOM_STOP_TOLERANCE)
+    {
+        _ctx.odom.active = false;
+        vx               = 0.0f;
+        vy               = 0.0f;
+        wz               = 0.0f;
+        return;
+    }
+
+    float speed_mps = _ctx.odom.speed_mps;
+    if (remaining < ODOM_DECEL_DISTANCE)
+    {
+        speed_mps *= remaining / ODOM_DECEL_DISTANCE;
+        if (speed_mps < ODOM_MIN_SPEED_MPS)
+        {
+            speed_mps = ODOM_MIN_SPEED_MPS;
+        }
+    }
+
+    vx = _ctx.odom.direction_vx * speed_mps;
+    vy = _ctx.odom.direction_vy * speed_mps;
+    wz = 0.0f;
+}
+
 void rud_chassis_t::_kinematics_solve()
 {
+    float vx = _ctx.cmd->vx;
+    float vy = _ctx.cmd->vy;
+    float wz = _ctx.cmd->wz;
+
     if (_ctx.cmd->mode == rud_cmd_t::mode_t::PASSIVE)
     {
-        _ctx.cmd->vx        = 0.0f;
-        _ctx.cmd->vy        = 0.0f;
-        _ctx.cmd->wz        = 0.0f;
+        vx                  = 0.0f;
+        vy                  = 0.0f;
+        wz                  = 0.0f;
         _ctx.cmd->yaw_error = 0.0f;
+        _ctx.odom.active    = false;
     }
     else if (_ctx.cmd->mode == rud_cmd_t::mode_t::ACTIVE)
     {
@@ -138,21 +323,23 @@ void rud_chassis_t::_kinematics_solve()
             // {
             //     _ctx.cmd->yaw_error = 0;
             // }
-            _ctx.cmd->wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
+            wz = _ctx.rud_config.pid.follow_yaw_pid->calculate(
                 0, _ctx.cmd->yaw_error);
         }
         else if (_ctx.cmd->follow_yaw == false)
         {
-            const float vx = _ctx.cmd->vx;
-            const float vy = _ctx.cmd->vy;
-            _ctx.cmd->vx =
-                vx * cosf(_ctx.cmd->yaw_error) - vy * sinf(_ctx.cmd->yaw_error);
-            _ctx.cmd->vy =
-                vx * sinf(_ctx.cmd->yaw_error) + vy * cosf(_ctx.cmd->yaw_error);
+            const float raw_vx = vx;
+            const float raw_vy = vy;
+            vx =
+                raw_vx * cosf(_ctx.cmd->yaw_error) - raw_vy * sinf(_ctx.cmd->yaw_error);
+            vy =
+                raw_vx * sinf(_ctx.cmd->yaw_error) + raw_vy * cosf(_ctx.cmd->yaw_error);
         }
+
+        _apply_odometry_control(vx, vy, wz);
     }
     _ctx.data.target_states = _kinematics->solve(
-        _ctx.cmd->vx, _ctx.cmd->vy, _ctx.cmd->wz, _ctx.data.current_states);
+        vx, vy, wz, _ctx.data.current_states);
 }
 
 void rud_chassis_t::_chassis_control(rud_ctx_t *ctx)

@@ -12,6 +12,7 @@
 #include "pyro_power_control_drv.h"
 #include "pyro_referee.h"
 #include "pyro_supercap_drv.h"
+#include <cstdint>
 
 namespace pyro
 {
@@ -60,8 +61,24 @@ class rud_chassis_t final
     struct rud_ctx_t;
 
   public:
+    enum class move_direction_t : uint8_t
+    {
+        FORWARD,
+        BACKWARD,
+        LEFT,
+        RIGHT
+    };
+
+    static constexpr float ODOM_DEFAULT_SPEED_MPS = 0.6f;
+
     rud_chassis_t(const rud_chassis_t &)            = delete;
     rud_chassis_t &operator=(const rud_chassis_t &) = delete;
+
+    status_t move_distance(move_direction_t direction, float distance_m,
+                           float speed_mps = ODOM_DEFAULT_SPEED_MPS);
+    void stop_distance_move();
+    [[nodiscard]] bool is_distance_move_active() const;
+    [[nodiscard]] float get_distance_move_remaining() const;
 
   private:
     rud_chassis_t();
@@ -78,6 +95,10 @@ class rud_chassis_t final
     static void _send_motor_command(rud_ctx_t *ctx);
     void _send_supercap_command() const;
     void _decide_cap();
+    void _apply_odometry_control(float &vx, float &vy, float &wz);
+    void _update_odometry_distance();
+    static void _direction_to_vector(move_direction_t direction, float &vx,
+                                     float &vy);
 
     rudder_kin_t *_kinematics{nullptr};
 
@@ -101,6 +122,18 @@ class rud_chassis_t final
         powermeter_data *data{nullptr};
     };
 
+    struct odom_ctx_t
+    {
+        bool active{false};
+        move_direction_t direction{move_direction_t::FORWARD};
+        float direction_vx{0.0f};
+        float direction_vy{0.0f};
+        float target_distance{0.0f};
+        float travelled_distance{0.0f};
+        float speed_mps{ODOM_DEFAULT_SPEED_MPS};
+        TickType_t last_tick{0};
+    };
+
     enum class drive_mode_t
     {
         MOVING,  // Normal driving mode
@@ -114,6 +147,7 @@ class rud_chassis_t final
         hardware_ctx_t hardware;
         power_ctx_t power;
         data_ctx_t data;
+        odom_ctx_t odom;
         rud_cmd_t *cmd;
         drive_mode_t drive_mode;
         supercap_drv_t::chassis_cmd_t supercap_cmd;
