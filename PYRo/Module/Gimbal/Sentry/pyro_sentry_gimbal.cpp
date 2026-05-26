@@ -5,7 +5,7 @@ float t_aim_pitch{};
 
 namespace pyro
 {
-
+float t_yaw, t_pitch, c_yaw, c_pitch;
 float aim_yaw, my_pitchps, my_pitch, my_torque, my_pitch_mec;
 float test_current_pos;
 
@@ -90,6 +90,8 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     ctx->data.target_pitch_radps =
         -ctx->gimbal_config.pid.pitch_pos_pid->calculate(
             ctx->data.target_pitch_rad, pitch);
+    t_pitch = ctx->data.target_pitch_rad;
+    c_pitch = pitch;
 
     // pitch轴速度环
     ctx->data.out_pitch_torque =
@@ -100,6 +102,8 @@ void gimbal_t::_gimbal_imu_control(gimbal_context_t *ctx)
     // yaw轴位置环
     ctx->data.target_yaw_radps = ctx->gimbal_config.pid.yaw_pos_pid->calculate(
         ctx->data.target_yaw_rad, yaw);
+    t_yaw = ctx->data.target_yaw_rad;
+    c_yaw = yaw;
 
     // yaw轴速度环
     ctx->data.out_yaw_torque = ctx->gimbal_config.pid.yaw_spd_pid->calculate(

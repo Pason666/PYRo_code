@@ -2,7 +2,7 @@
 #include "pyro_core_def.h"
 #if BOARD_ID == CHASSIS_ID
 
-#define VARIABLE_SPINNING_EN 0
+#define VARIABLE_SPINNING_EN 1
 
 #include "pyro_module_base.h"
 #include "pyro_rud_chassis.h"
@@ -77,11 +77,11 @@ void chassis_config(rud_cfg_t &rud_cfg)
     rud_cfg.pid.rud_pos_pid[0] =
         new pid_t(13.0f, 0.0f, 0.0f, 1.0f, 15.0f, 15, 0, 0);
     rud_cfg.pid.rud_pos_pid[1] =
-        new pid_t(15.0f, 0.0f, 0.0f, 1.0f, 15.0f, 15, 0, 0);
+        new pid_t(18.0f, 0.0f, 0.0f, 1.0f, 15.0f, 15, 0, 0);
     rud_cfg.pid.rud_pos_pid[2] =
         new pid_t(15.0f, 0.0f, 0.0f, 1.0f, 15.0f, 15, 0, 0);
     rud_cfg.pid.rud_pos_pid[3] =
-        new pid_t(15.0f, 0.0f, 0.0f, 1.0f, 15.0f, 15, 0, 0);
+        new pid_t(18.0f, 0.0f, 0.0f, 1.0f, 15.0f, 15, 0, 0);
 
     rud_cfg.pid.rud_spd_pid[0] = new pid_t(0.33f, 0.0f, 0.00f, 0.0f, 3.0f);
     rud_cfg.pid.rud_spd_pid[1] = new pid_t(0.35f, 0.0f, 0.00f, 0.0f, 3.0f);
@@ -136,15 +136,16 @@ void yaw_config(yaw_cfg_t &yaw_cfg)
     yaw_cfg.pid.yaw_pos_pid = new pid_t(20, 0, 1.0, 1, 80);
     yaw_cfg.pid.yaw_spd_pid = new pid_t(2, 0, 0, 2, 12);
 
-    yaw_cfg.yaw_offset      = 2.75023007f;
+    yaw_cfg.yaw_offset      = -2.01841402f;
 }
 
 extern "C"
 {
     void spinning_top_control()
     {
-        constexpr float SLOW_SPIN_WZ             = 1.0f;
-        constexpr float HIT_SPIN_WZ              = 6.0f;
+        constexpr float SLOW_SPIN_WZ             = 2.0f;
+        constexpr float HIGH_SPIN_WZ             = 8.0f;
+        constexpr float HIT_SPIN_WZ              = 5.0f;
         constexpr TickType_t HIT_SPIN_HOLD_TICKS = pdMS_TO_TICKS(8000);
 
         static uint16_t last_hp      = 0;
@@ -168,13 +169,19 @@ extern "C"
             hit_speed_active = true;
         }
 
-        if (hit_speed_active && now - hit_tick < HIT_SPIN_HOLD_TICKS)
-            rud_cmd_ptr->wz = HIT_SPIN_WZ;
+        if(nav2mcu_msg.data.in_aim == 6)
+        {
+            rud_cmd_ptr->wz  = HIT_SPIN_WZ;
+            hit_speed_active = false;
+        }
+        else if (hit_speed_active && now - hit_tick < HIT_SPIN_HOLD_TICKS)
+            rud_cmd_ptr->wz = HIGH_SPIN_WZ;
         else
         {
             rud_cmd_ptr->wz  = SLOW_SPIN_WZ;
             hit_speed_active = false;
         }
+
         #else
         rud_cmd_ptr->wz = HIT_SPIN_WZ;
         #endif

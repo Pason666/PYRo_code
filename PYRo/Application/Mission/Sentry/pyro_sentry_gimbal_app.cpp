@@ -51,8 +51,8 @@ void gimbal_config(gimbal_cfg_t &gimbal_cfg)
     gimbal_cfg.pid.pitch_spd_pid = new pid_t(0.6f, 0.0f, 0.001f, 0.5f, 7.0f);
 
     gimbal_cfg.pid.yaw_pos_pid =
-            new pyro::pid_t(40.0f, 0.0f, 0.0f, 0, 18.0f);
-    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(0.7f, 0.0f, 0.0f, 0.2f, 3);
+            new pyro::pid_t(50.0f, 0.0f, 0.3f, 0, 18.0f);
+    gimbal_cfg.pid.yaw_spd_pid = new pyro::pid_t(1.5f, 0.0f, 0.0f, 0.2f, 3);
 
     gimbal_cfg.yaw_offset      = 3.10401011f;
 }
@@ -313,6 +313,9 @@ extern "C"
     void mcu2aim_process()
     {
         float yaw, pitch, roll;
+        static int8_t in_aim_count = 0;
+        static int8_t enemycolor_count = 0;
+        static int8_t bigyaw_count = 0;
         ins_drv_t *ins = ins_drv_t::get_instance();
         ins->get_angles_b(&yaw, &pitch, &roll);
         yaw                               = yaw / 180 * PI;
@@ -324,11 +327,51 @@ extern "C"
         mcu2aim_msg.data.self_v_angle     = 0;
         mcu2aim_msg.data.curr_speed       = bullet_speed;
         mcu2aim_msg.data.shoot_delay      = 0;
-        mcu2aim_msg.data.state            = in_aim;
+        if(in_aim == 0)
+        {
+            in_aim_count++;
+            if(in_aim_count > 50)
+            {
+                in_aim_count = 0;
+                mcu2aim_msg.data.state            = 0;
+            }
+        }
+        else
+        {
+            in_aim_count = 0;
+            mcu2aim_msg.data.state            = in_aim;
+        }
+        
         mcu2aim_msg.data.stop_record      = 0;
+        if(enemy_color == 0)
+        {
+            enemycolor_count++;
+            if(enemycolor_count > 50)
+            {
+                enemycolor_count = 0;
+                mcu2aim_msg.data.enemy_color         = 0;
+            }
+        }
+        else
+        {
+            enemycolor_count = 0;
+            mcu2aim_msg.data.enemy_color         = enemy_color;
+        }
         mcu2aim_msg.data.autoaim          = autoaim;
-        mcu2aim_msg.data.enemy_color      = enemy_color;
-        mcu2aim_msg.data.big_yaw          = big_yaw;
+        if(big_yaw == 0)
+        {
+            bigyaw_count++;
+            if(bigyaw_count > 50)
+            {
+                big_yaw = 0.0f;
+                bigyaw_count = 0;
+            }
+        }
+        else
+        {
+            bigyaw_count = 0;
+            mcu2aim_msg.data.big_yaw          = big_yaw;
+        }
         append_crc16_check_sum(reinterpret_cast<uint8_t *>(&mcu2aim_msg),
                                sizeof(mcu2aim_msg) - 1);
         comm->write(mcu2aim_msg);
