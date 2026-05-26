@@ -351,6 +351,67 @@ extern "C"
                                       can_hub_t::which_can::can3));
     }
 
+    void chassis2gimbal_odom()
+    {
+        constexpr float WHEEL_DIAMETER       = 0.120f;
+        constexpr float WHEEL_CIRCUMFERENCE  = PI * WHEEL_DIAMETER;
+        constexpr float RECIPROCAL_REDUCTION =
+            dji_m3508_motor_drv_t::reciprocal_reduction_ratio;
+
+        static float last_rotor_pos[4]      = {0.0f};
+        static float last_wheel_distance[4] = {0.0f};
+        static float odom_x                 = 0.0f;
+        static float odom_y                 = 0.0f;
+        static bool  initialized            = false;
+
+        for (int i = 0; i < 4; i++)
+        {
+            float current_pos =
+                rud_cfg_ptr->motor.wheel[i]->get_current_position();
+
+            if (!initialized)
+            {
+                last_rotor_pos[i] = current_pos;
+                continue;
+            }
+
+            float delta = current_pos - last_rotor_pos[i];
+            if (delta > PI)
+                delta -= 2.0f * PI;
+            else if (delta < -PI)
+                delta += 2.0f * PI;
+
+            float current_wheel_distance =
+                last_wheel_distance[i] +
+                delta * RECIPROCAL_REDUCTION / (2.0f * PI) * WHEEL_CIRCUMFERENCE;
+
+            float delta_dist = current_wheel_distance - last_wheel_distance[i];
+
+            float steer_angle =
+                rud_cfg_ptr->motor.rudder[i]->get_current_position() -
+                rud_cfg_ptr->rud_pos_moving_offset[i];
+            while (steer_angle > PI) steer_angle -= 2.0f * PI;
+            while (steer_angle < -PI) steer_angle += 2.0f * PI;
+
+            odom_x += delta_dist * cosf(steer_angle) / 4.0f;
+            odom_y += delta_dist * sinf(steer_angle) / 4.0f;
+
+            last_rotor_pos[i]      = current_pos;
+            last_wheel_distance[i] = current_wheel_distance;
+        }
+        initialized = true;
+
+        auto &can3 = can_hub_t::get_instance()->hub_get_can_obj(
+            can_hub_t::which_can::can3);
+
+        can_tx_drv_t::clear(0x124);
+        uint8_t *px = reinterpret_cast<uint8_t *>(&odom_x);
+        uint8_t *py = reinterpret_cast<uint8_t *>(&odom_y);
+        for (int i = 0; i < 4; i++) can_tx_drv_t::add_data(0x124, 8, px[i]);
+        for (int i = 0; i < 4; i++) can_tx_drv_t::add_data(0x124, 8, py[i]);
+        can_tx_drv_t::send(0x124, can3);
+    }
+
     void mcu2nav_process()
     {
         mcu2nav_msg.data.self_hp = referee_data.robot_status.current_hp;

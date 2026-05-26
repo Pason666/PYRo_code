@@ -24,6 +24,34 @@ uint8_t enemy_color{};
 uint8_t in_aim{};
 bool scan{};
 
+// 轮子几何参数（与底盘端 RUD_RADIUS=0.060f 保持一致）
+#define WHEEL_DIAMETER       0.120f
+#define WHEEL_CIRCUMFERENCE  ((float)PI * WHEEL_DIAMETER)
+
+// 底盘里程计坐标（底盘端 CAN 0x124 发送累计绝对值）
+static float current_odom_x = 0.0f;
+static float current_odom_y = 0.0f;
+
+// 路点队列 —— 首次手动模式可连续多次调用
+static constexpr uint8_t MAX_WAYPOINTS = 8;
+static float    waypoint_sx[MAX_WAYPOINTS];
+static float    waypoint_sy[MAX_WAYPOINTS];
+static uint16_t waypoint_delay[MAX_WAYPOINTS];
+static uint8_t  waypoint_count    = 0;
+static uint8_t  waypoint_index    = 0;
+static bool     first_manual_done = false;
+
+// 距离移动功能状态
+static bool     distance_move_active = false;
+static float    move_target_sx       = 0.0f;
+static float    move_target_sy       = 0.0f;
+static float    move_start_odom_x    = 0.0f;
+static float    move_start_odom_y    = 0.0f;
+static uint16_t move_delay_counter   = 0;
+
+static constexpr float DISTANCE_MOVE_SPEED = 0.5f;
+static constexpr float DISTANCE_TOLERANCE  = 0.01f;
+
 gimbal_t *gimbal_ptr                       = nullptr;
 gimbal_cmd_t *gimbal_cmd_ptr               = nullptr;
 gimbal_cfg_t *gimbal_cfg_ptr               = nullptr;
@@ -32,6 +60,43 @@ dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 
 __attribute__((section(".dma_heap"))) mcu2aim_msg_t mcu2aim_msg;
 __attribute__((section(".dma_heap"))) aim2mcu_msg_t aim2mcu_msg;
+
+    // 添加移动路点，自动拆为先直走再横走，避免斜向移动
+    void sentry_move_by_distance(float sx, float sy, uint16_t delay_ms)
+    {
+        if (first_manual_done) return;
+        if (waypoint_count + 1 >= MAX_WAYPOINTS) return;
+
+        waypoint_sx[waypoint_count]    = sx;
+        waypoint_sy[waypoint_count]    = 0.0f;
+        waypoint_delay[waypoint_count] = delay_ms;
+        waypoint_count++;
+
+        waypoint_sx[waypoint_count]    = 0.0f;
+        waypoint_sy[waypoint_count]    = sy;
+        waypoint_delay[waypoint_count] = 0;
+        waypoint_count++;
+    }
+
+    // 从队列加载下一个路点，队列为空时结束
+    static void waypoint_load_next()
+    {
+        if (waypoint_index < waypoint_count)
+        {
+            move_target_sx      = waypoint_sx[waypoint_index];
+            move_target_sy      = waypoint_sy[waypoint_index];
+            move_delay_counter  = waypoint_delay[waypoint_index];
+            move_start_odom_x   = current_odom_x;
+            move_start_odom_y   = current_odom_y;
+            distance_move_active = true;
+            waypoint_index++;
+        }
+        else
+        {
+            distance_move_active = false; // 队列空，交还遥控器控制
+        }
+    }
+
 
 void gimbal_config(gimbal_cfg_t &gimbal_cfg)
 {
@@ -186,9 +251,10 @@ extern "C"
                 follow_yaw = false;
                 active     = false;
                 nav_enable = false;
+                if (waypoint_count > 0) first_manual_done = true;
             }
             else if (rc_data->rc.gear.state == pyro::vt03_drv_t::gear_state_t::GEAR_MID)
-            {
+            {   
                 if (abs(rc_data->rc.ch_ly) < 0.1f)
                     vx = 0;
                 else
@@ -203,6 +269,15 @@ extern "C"
                 follow_yaw = true;
                 active     = true;
                 nav_enable = false;
+
+                if (!first_manual_done && waypoint_count == 0)
+                {
+                    // 在这里可连续多次调用 sentry_move_by_distance() 添加路点
+                    sentry_move_by_distance(0.5f, 0.0f, 500);
+                    // ... 可添加更多路点 ...
+                    waypoint_load_next(); // 启动第一个路点
+                }
+
                 if(rc_data->rc.ch_ly == 0 &&
                     rc_data->rc.ch_lx == 0 &&
                     rc_data->rc.ch_rx == 0 &&
@@ -240,6 +315,7 @@ extern "C"
                 follow_yaw = false;
                 active     = false;
                 nav_enable = false;
+                if (waypoint_count > 0) first_manual_done = true;
             }
             else if (dr16_drv_t::sw_state_t::SW_MID == p_ctrl->rc.s_r.state)
             {
@@ -257,6 +333,12 @@ extern "C"
                 follow_yaw = true;
                 active     = true;
                 nav_enable = false;
+
+                if (!first_manual_done && waypoint_count == 0)
+                {
+                    sentry_move_by_distance(0.5f, 0.0f, 500);
+                    waypoint_load_next();
+                }
             }
             else if (dr16_drv_t::sw_state_t::SW_DOWN == p_ctrl->rc.s_r.state)
             {
@@ -266,6 +348,42 @@ extern "C"
             }
         }
         
+
+        if (distance_move_active)
+        {
+            if (move_delay_counter > 0)
+            {
+                move_delay_counter--;
+                vx = 0;
+                vy = 0;
+            }
+            else
+            {
+            float traveled_x = current_odom_x - move_start_odom_x;
+            float traveled_y = current_odom_y - move_start_odom_y;
+            float remain_x   = move_target_sx - traveled_x;
+            float remain_y   = move_target_sy - traveled_y;
+
+            float speed_x = 0.0f, speed_y = 0.0f;
+            if (fabsf(remain_x) > DISTANCE_TOLERANCE)
+                speed_x =
+                    (remain_x > 0.0f) ? DISTANCE_MOVE_SPEED : -DISTANCE_MOVE_SPEED;
+            if (fabsf(remain_y) > DISTANCE_TOLERANCE)
+                speed_y =
+                    (remain_y > 0.0f) ? DISTANCE_MOVE_SPEED : -DISTANCE_MOVE_SPEED;
+
+            vx = static_cast<int8_t>(speed_x / 2.0f * 127.0f);
+            vy = static_cast<int8_t>(speed_y / 2.0f * 127.0f);
+
+            if (fabsf(remain_x) <= DISTANCE_TOLERANCE &&
+                fabsf(remain_y) <= DISTANCE_TOLERANCE)
+            {
+                vx = 0;
+                vy = 0;
+                waypoint_load_next(); // 加载下一个路点，队列空时自动结束
+            }
+            } // end else (move_delay_counter == 0)
+        }
 
         can_tx_drv_t::add_data(0x123, 8, vx);
         can_tx_drv_t::add_data(0x123, 8, vy);
@@ -310,6 +428,16 @@ extern "C"
         big_yaw = static_cast<float>(yaw_scaled) / 10000.0f;
     }
 
+    void chassis2gimbal_odom()
+    {
+        std::array<uint8_t, 8> raw_data{};
+        if (can_rx_drv_t::get_data(can_hub_t::which_can::can3, 0x124, raw_data))
+        {
+            memcpy(&current_odom_x, raw_data.data(), 4);
+            memcpy(&current_odom_y, raw_data.data() + 4, 4);
+        }
+    }
+
     void mcu2aim_process()
     {
         float yaw, pitch, roll;
@@ -339,6 +467,7 @@ extern "C"
         while (true)
         {
             comm->read(aim2mcu_msg);
+            chassis2gimbal_odom();
             chassis_rc2cmd(rc_ctrl_ptr);
             gimbal_rc2cmd(rc_ctrl_ptr);
             chassis2gimbal();
@@ -360,6 +489,8 @@ extern "C"
 
         comm->register_msg_type(sizeof(aim2mcu_msg), &header,
                                 sizeof(aim2mcu_msg.header));
+
+        can_rx_drv_t::subscribe(can_hub_t::which_can::can3, 0x124);
 
         gimbal_ptr = gimbal_t::instance();
         gimbal_config(*gimbal_cfg_ptr);
