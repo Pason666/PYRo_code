@@ -3,7 +3,7 @@
 //
 #include "pyro_yaw.h"
 
-float yaw_test{}, torque_test{}, cspeed{};
+float yaw_test{}, torque_test{}, cspeed{}, imu_yaw_test{};
 
 namespace pyro
 {
@@ -54,6 +54,9 @@ void yaw_t::_update_feedback()
     ins->get_angles_n(&yaw, &pitch, &roll);
     ins->get_gyro_n(&chassis_yaw_radps, &chassis_pitch_radps,
                     &chassis_roll_radps);
+
+    imu_yaw_test = yaw;
+    
     _ctx.data.chassis_world_yaw = yaw / 180 * PI;
 
     _ctx.data.chassis_wz = chassis_yaw_radps;

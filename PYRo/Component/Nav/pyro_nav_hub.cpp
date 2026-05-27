@@ -37,15 +37,17 @@ float clamp_dt(float dt, float min_dt, float max_dt)
 nav_hub_t::nav_hub_t(const nav_point_t &initial_map_pos,
                      const nav_hub_deps_t &deps,
                      const nav_hub_config_t &config)
-    : _deps(deps), _config(config), _current_pos(initial_map_pos)
+    : _deps(deps), _config(config),
+      _current_pos(initial_map_pos.x, -initial_map_pos.y, initial_map_pos.z)
 {
     _clear_pid();
 }
 
 void nav_hub_t::reset(const nav_point_t &map_pos)
 {
-    _current_pos          = map_pos;
+    _current_pos          = nav_point_t(map_pos.x, -map_pos.y, map_pos.z);
     _last_output.current  = _current_pos;
+    _last_output.current.y = -_current_pos.y;
     _feedback_initialized = false;
     _dwt_cnt              = 0;
     _clear_pid();
@@ -65,7 +67,14 @@ void nav_hub_t::update_feedback(float vx, float vy, float yaw, float roll,
 
     dt = clamp_dt(dt, _config.min_dt, _config.max_dt);
 
-    const nav_point_t ground_vel = body_to_ground_velocity(vx, vy, _attitude);
+    // vx/vy are in yaw-aligned frame; de-rotate to body frame for projection
+    const float cy = std::cos(yaw);
+    const float sy = std::sin(yaw);
+    const float body_vx = cy * vx + sy * vy;
+    const float body_vy = -sy * vx + cy * vy;
+
+    const nav_point_t ground_vel =
+        body_to_ground_velocity(body_vx, body_vy, _attitude);
     _current_pos.x += ground_vel.x * dt;
     _current_pos.y += ground_vel.y * dt;
     _current_pos.z += ground_vel.z * dt;
@@ -75,9 +84,9 @@ bool nav_hub_t::set_target(float target_x, float target_y)
 {
     const bool target_changed = !_target_valid ||
                                 !nearly_equal(_target.x, target_x) ||
-                                !nearly_equal(_target.y, target_y);
+                                !nearly_equal(_target.y, -target_y);
 
-    _target       = nav_point_t(target_x, target_y, _current_pos.z);
+    _target       = nav_point_t(target_x, -target_y, _current_pos.z);
     _target_valid = true;
 
     if (target_changed)
@@ -94,7 +103,10 @@ bool nav_hub_t::set_target(float target_x, float target_y)
         _last_output.target_valid = true;
         _last_output.distance_xy  = dist;
         _last_output.current      = _current_pos;
-        _last_output.target       = _target;
+        _last_output.current.y    = -_current_pos.y;
+        _last_output.target.x     = -_target.y;
+        _last_output.target.y     = _target.x;
+        _last_output.target.z     = _target.z;
         _clear_pid();
         return true;
     }
@@ -103,14 +115,18 @@ bool nav_hub_t::set_target(float target_x, float target_y)
     _last_output.target_valid = true;
     _last_output.distance_xy  = dist;
     _last_output.current      = _current_pos;
+    _last_output.current.y    = -_current_pos.y;
     _last_output.target       = _target;
+    _last_output.target.y     = -_target.y;
     return false;
 }
 
 nav_output_t nav_hub_t::update()
 {
     _last_output.current      = _current_pos;
+    _last_output.current.y    = -_current_pos.y;
     _last_output.target       = _target;
+    _last_output.target.y     = -_target.y;
     _last_output.target_valid = _target_valid;
 
     if (!_target_valid)
@@ -156,7 +172,7 @@ nav_output_t nav_hub_t::update()
     }
 
     _last_output.vx      = body_vx;
-    _last_output.vy      = body_vy;
+    _last_output.vy      = -body_vy;
     _last_output.arrived = false;
     return _last_output;
 }

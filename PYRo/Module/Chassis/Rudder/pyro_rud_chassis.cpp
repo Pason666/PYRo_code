@@ -122,20 +122,25 @@ float rud_chassis_t::get_distance_move_remaining() const
     return remaining > 0.0f ? remaining : 0.0f;
 }
 
-void rud_chassis_t::get_body_velocity(float &vx, float &vy)
+void rud_chassis_t::get_body_velocity(float &vx, float &vy, float yaw)
 {
     scoped_mutex_t lock(get_mutex());
-    vx = 0.0f;
-    vy = 0.0f;
+    float body_vx = 0.0f;
+    float body_vy = 0.0f;
     for (int i = 0; i < 4; i++)
     {
         const float angle = _ctx.data.current_states.modules[i].angle;
         const float speed = _ctx.data.current_states.modules[i].speed;
-        vx += speed * sinf(angle);
-        vy += speed * cosf(angle);
+        body_vx += speed * sinf(angle);
+        body_vy += speed * cosf(angle);
     }
-    vx *= 0.25f;
-    vy *= 0.25f;
+    body_vx *= 0.25f;
+    body_vy *= 0.25f;
+
+    const float cy = std::cos(yaw);
+    const float sy = std::sin(yaw);
+    vx = body_vx * cy - body_vy * sy;
+    vy = -(body_vx * sy + body_vy * cy);
 }
 
 void rud_chassis_t::_direction_to_vector(move_direction_t direction, float &vx,

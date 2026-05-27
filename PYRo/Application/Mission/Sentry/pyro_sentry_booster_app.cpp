@@ -76,7 +76,12 @@ extern "C"
                 }
                 if(booster_cmd_ptr->is_fric_on)
                 {
-                    if(rc_data->rc.trigger.ctrl == pyro::vt03_drv_t::key_ctrl_t::KEY_PRESSED&&
+                    if (auto_fire)
+                    {
+                        booster_cmd_ptr->continue_shoot = true;
+                        booster_cmd_ptr->single_shoot   = false;
+                    }
+                    else if(rc_data->rc.trigger.ctrl == pyro::vt03_drv_t::key_ctrl_t::KEY_PRESSED&&
                        rc_data->rc.trigger.change_time > last_fn_r_time)
                     {
                         booster_cmd_ptr->single_shoot = true;
@@ -84,7 +89,7 @@ extern "C"
                         last_fn_r_time = rc_data->rc.trigger.change_time;
                     }
                     else if(rc_data->rc.trigger.ctrl == pyro::vt03_drv_t::key_ctrl_t::KEY_HOLD)
-                    { 
+                    {
                         down_time++;
                         if (down_time > 600)
                         {

@@ -226,7 +226,7 @@ struct robot_pos_t
     float x;
     float y;
     float angle;
-    uint32_t reserved;
+    float reserved;
 };
 
 // 0x0204

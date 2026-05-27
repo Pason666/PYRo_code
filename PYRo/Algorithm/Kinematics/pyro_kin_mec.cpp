@@ -38,14 +38,17 @@ mecanum_kin_t::solve(const float vx, const float vy, const float wz) const
 
 void mecanum_kin_t::compute_odometry(const wheel_speeds_t &speeds,
                                      float &out_vx, float &out_vy,
-                                     float &out_wz) const
+                                     float &out_wz, float yaw) const
 {
-    // Forward Kinematics formula
-    // Derived based on O-configuration
-    out_vx = (speeds.fl + speeds.fr + speeds.bl + speeds.br) / 4.0f;
-    out_vy = (-speeds.fl + speeds.fr + speeds.bl - speeds.br) / 4.0f;
+    // Forward Kinematics formula — body frame
+    const float body_vx = (speeds.fl + speeds.fr + speeds.bl + speeds.br) / 4.0f;
+    const float body_vy = (-speeds.fl + speeds.fr + speeds.bl - speeds.br) / 4.0f;
 
-    // Avoid division by zero risk
+    const float cy = std::cos(yaw);
+    const float sy = std::sin(yaw);
+    out_vx = body_vx * cy - body_vy * sy;
+    out_vy = -(body_vx * sy + body_vy * cy);
+
     if (_k_geom > 1e-6f)
     {
         out_wz =

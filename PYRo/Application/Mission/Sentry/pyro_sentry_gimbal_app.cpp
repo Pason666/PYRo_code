@@ -23,6 +23,7 @@ bool autoaim = false;
 uint8_t enemy_color{};
 uint8_t in_aim{};
 bool scan{};
+bool nav_sequence_done = false;
 
 gimbal_t *gimbal_ptr                       = nullptr;
 gimbal_cmd_t *gimbal_cmd_ptr               = nullptr;
@@ -72,6 +73,7 @@ extern "C"
         
         if_aim = aim2mcu_msg.data.fire;
         auto_fire                         = aim2mcu_msg.data.fire;
+
         if(abs(aim2mcu_msg.data.shoot_yaw) <= PI)
             gimbal_cmd_ptr->aim_imu_yaw_rad   = aim2mcu_msg.data.shoot_yaw;
         if(abs(aim2mcu_msg.data.shoot_pitch) <= PI / 2)
@@ -149,7 +151,15 @@ extern "C"
             }
 
         }
-        
+
+        if (nav_sequence_done)
+        {
+            auto_fire = aim2mcu_msg.data.fire;
+        }
+        else
+        {
+            auto_fire = false;
+        }
     }
 
     void chassis_rc2cmd(void const *rc_ctrl)
@@ -297,6 +307,7 @@ extern "C"
         game_started = raw_data[3] & 0x01;
         enemy_color = raw_data[3] >> 1 & 0x01;
         scan = raw_data[3] >> 2 & 0x01;
+        nav_sequence_done = (raw_data[3] >> 3) & 0x01;
     }
 
     void chassis2gimbal_heat()

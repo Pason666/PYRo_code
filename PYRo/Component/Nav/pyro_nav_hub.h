@@ -29,12 +29,15 @@ struct nav_point_t
     float x;
     float y;
     float z;
+    // float timestamp;
 
     nav_point_t() : x(0.0f), y(0.0f), z(0.0f)
+    // , timestamp(0.0f)
     {
     }
 
-    nav_point_t(const float x_, const float y_, const float z_ = 0.0f) : x(x_), y(y_), z(z_)
+    nav_point_t(const float x_, const float y_, const float z_ = 0.0f, const float timestamp_ = 0.0f) : x(x_), y(y_), z(z_)
+    // , timestamp(timestamp_)
     {
     }
 };
@@ -146,8 +149,8 @@ class nav_hub_t
     /**
      * @brief Update chassis velocity feedback and attitude.
      *
-     * @param vx Chassis forward-solved body-frame vx, m/s.
-     * @param vy Chassis forward-solved body-frame vy, m/s.
+     * @param vx Chassis forward-solved yaw-aligned (world) vx, m/s.
+     * @param vy Chassis forward-solved yaw-aligned (world) vy, m/s.
      * @param yaw Current yaw, rad.
      * @param roll Current roll, rad.
      * @param pitch Current pitch, rad.

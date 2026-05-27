@@ -79,7 +79,7 @@ class rud_chassis_t final
     void stop_distance_move();
     [[nodiscard]] bool is_distance_move_active() const;
     [[nodiscard]] float get_distance_move_remaining() const;
-    void get_body_velocity(float &vx, float &vy);
+    void get_body_velocity(float &vx, float &vy, float yaw = 0.0f);
 
   private:
     rud_chassis_t();

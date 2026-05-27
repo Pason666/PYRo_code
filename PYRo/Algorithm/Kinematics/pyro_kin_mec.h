@@ -45,7 +45,8 @@ class mecanum_kin_t
      * @param out_wz Output reference: Body angular velocity Z
      */
     void compute_odometry(const wheel_speeds_t &speeds, float &out_vx,
-                          float &out_vy, float &out_wz) const;
+                          float &out_vy, float &out_wz,
+                          float yaw = 0.0f) const;
 
   private:
     // Geometry calculation constant: (lx + ly)

@@ -6,7 +6,7 @@
 #define SENTRY_RIGHT_DOWN_NAV 0
 #define SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M 1
 #define SENTRY_RIGHT_DOWN_ODOM_SEQUENCE 2
-#define SENTRY_RIGHT_DOWN_MODE SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
+#define SENTRY_RIGHT_DOWN_MODE SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
 
 #include "pyro_module_base.h"
 #include "pyro_rud_chassis.h"
@@ -43,8 +43,9 @@ nav_hub_deps_t nav_deps;
 
 pid_t nav_x_pid{1.0f, 0.01f, 0.01f, 0.08f, 1.5f};
 pid_t nav_y_pid{1.0f, 0.01f, 0.01f, 0.08f, 1.5f};
-nav_point_t initial_nav_pos{0.0f, 0.0f, 0.0f};
-nav_point_t nav_target{5.0f, 0.0f, 0.0f};
+nav_point_t initial_nav_pos{3.97f, 8.048f, 0.0f};
+nav_point_t nav_target{0.0f, 5.0f, 0.0f};
+bool nav_sequence_done = false;
 
 extern float yaw, roll, pitch;
 
@@ -220,22 +221,14 @@ extern "C"
         // 数据转换系数
         constexpr float VEL_SCALE         = 2.0f / 127.0f;    // 速度比例系数
         constexpr float YAW_ANGLE_SCALE   = 0.0075f / 127.0f; // Yaw角度微调系数
-#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
-        constexpr float ODOM_FORWARD_DISTANCE_M = 1.0f;
-#endif
-#if SENTRY_RIGHT_DOWN_MODE >= SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
         constexpr float ODOM_FORWARD_SPEED_MPS =
             rud_chassis_t::ODOM_DEFAULT_SPEED_MPS;
-#endif
+
         // ==================== 导航数据低通滤波 静态变量（只初始化一次）
         // ====================
         static float filtered_vx          = 0.0f;
         static float filtered_vy          = 0.0f;
         static float filtered_yaw         = 0.0f;
-#if SENTRY_RIGHT_DOWN_MODE >= SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
-        static bool odom_request_last      = false;
-#endif
-#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
         enum class seq_step_t : uint8_t
         {
             IDLE,
@@ -247,7 +240,6 @@ extern "C"
         static seq_step_t seq_step           = seq_step_t::IDLE;
         static TickType_t seq_delay_start    = 0;
         static uint8_t waypoint_index        = 0;
-#endif
         // 滤波系数：0~1，越大越平滑，越小响应越快（推荐 0.1~0.3）
         constexpr float LPF_ALPHA         = 0.15f;
 
@@ -264,6 +256,15 @@ extern "C"
         const bool is_mode_active = (raw_data[4] >> BIT_MODE_ACTIVE) & 0x01;
         const bool is_nav_enable  = (raw_data[4] >> BIT_NAV_ENABLE) & 0x01;
         const bool is_follow_yaw  = raw_data[4] & (1 << BIT_FOLLOW_YAW);
+
+        // 导航→遥控模式切换时，重置yaw目标为当前IMU角度，避免与 follow_yaw 打架
+        static bool was_nav_enable = false;
+        if (was_nav_enable && !is_nav_enable)
+        {
+            yaw_cmd_ptr->target_yaw_imu_angle =
+                yaw_cmd_ptr->current_yaw_imu_rad;
+        }
+        was_nav_enable = is_nav_enable;
 
         // ==================== 4. 设置工作模式（底盘/Yaw轴）
         // ====================
@@ -294,11 +295,12 @@ extern "C"
         // ====================
 #if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
         {
-            float body_vx = 0.0f;
-            float body_vy = 0.0f;
-            rud_chassis_ptr->get_body_velocity(body_vx, body_vy);
+            float yaw_vx = 0.0f;
+            float yaw_vy = 0.0f;
+            rud_chassis_ptr->get_body_velocity(
+                yaw_vx, yaw_vy, yaw_cmd_ptr->current_yaw_imu_rad);
             nav_hub_ptr->update_feedback(
-                body_vx, body_vy, yaw_cmd_ptr->current_yaw_imu_rad, roll, pitch);
+                -yaw_vy, yaw_vx, yaw_cmd_ptr->current_yaw_imu_rad, roll, pitch);
         }
 #endif
 
@@ -307,12 +309,6 @@ extern "C"
         if (!is_nav_enable)
         {
 #if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
-            // 拨杆关闭 → 停止里程计
-            if (odom_request_last)
-            {
-                rud_chassis_ptr->stop_distance_move();
-                odom_request_last = false;
-            }
 #elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
             // 拨杆关闭 → 取消导航
             if (seq_step != seq_step_t::IDLE)
@@ -323,6 +319,7 @@ extern "C"
                 }
                 seq_step = seq_step_t::IDLE;
             }
+            nav_sequence_done = false;
 #endif
             // 【非导航模式】使用CAN原始数据控制
             rud_cmd_ptr->vx =
@@ -377,26 +374,26 @@ extern "C"
             yaw_cmd_ptr->target_yaw_imu_angle = filtered_yaw;
             rud_cmd_ptr->is_nav_mode          = true;
 #elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_FORWARD_1M
-            const bool odom_request =
-                rud_cmd_ptr->mode == cmd_base_t::mode_t::ACTIVE;
+            // const bool odom_request =
+            //     rud_cmd_ptr->mode == cmd_base_t::mode_t::ACTIVE;
 
             rud_cmd_ptr->vx          = 0.0f;
             rud_cmd_ptr->vy          = 0.0f;
-            rud_cmd_ptr->wz          = 0.0f;
             rud_cmd_ptr->follow_yaw  = false;
             rud_cmd_ptr->is_nav_mode = false;
+            spinning_top_control();
 
-            if (odom_request && !odom_request_last)
-            {
-                rud_chassis_ptr->move_distance(
-                    rud_chassis_t::move_direction_t::LEFT,
-                    ODOM_FORWARD_DISTANCE_M, ODOM_FORWARD_SPEED_MPS);
-            }
-            else if (!odom_request && odom_request_last)
-            {
-                rud_chassis_ptr->stop_distance_move();
-            }
-            odom_request_last = odom_request;
+            // if (odom_request && !odom_request_last)
+            // {
+            //     rud_chassis_ptr->move_distance(
+            //         rud_chassis_t::move_direction_t::LEFT,
+            //         ODOM_FORWARD_DISTANCE_M, ODOM_FORWARD_SPEED_MPS);
+            // }
+            // else if (!odom_request && odom_request_last)
+            // {
+            //     rud_chassis_ptr->stop_distance_move();
+            // }
+            // odom_request_last = odom_request;
 #elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
             // 拨杆 ON (is_nav_enable=1) → nav_hub 路径规划: 延时→直走5m→左走3m→直走5m
             {
@@ -404,10 +401,14 @@ extern "C"
                 constexpr TickType_t WAYPOINT_WAIT_TICKS = pdMS_TO_TICKS(500);
 
                 const nav_point_t WAYPOINTS[] = {
-                    {0.0f, 0.0f, 0.0f},
-                    {0.0f, 1.0f, 0.0f},  // 直走 5m
-                    {1.0f, 1.0f, 0.0f},  // 左走 3m
-                    {1.0f, 2.0f, 0.0f}, // 直走 5m
+                    {3.97f, 8.048f, 0.0f},
+                    {3.97f, 9.27f, 0.0f},
+                    {8.353f, 9.27f, 0.0f},
+                    {10.06f, 11.335f, 0.0f},
+                    // {0.0f, 0.0f, 0.0f},
+                    // {0.0f, 1.0f, 0.0f},
+                    // {1.0f, 1.0f, 0.0f},
+                    // {1.0f, 2.0f, 0.0f},
                 };
                 constexpr size_t WAYPOINT_COUNT =
                     sizeof(WAYPOINTS) / sizeof(WAYPOINTS[0]);
@@ -428,6 +429,7 @@ extern "C"
                 switch (seq_step)
                 {
                 case seq_step_t::IDLE:
+                    nav_sequence_done = false;
                     if (nav_trigger)
                     {
                         waypoint_index = 0;
@@ -478,8 +480,9 @@ extern "C"
                         break;
                     }
 
-                    rud_cmd_ptr->vx = output.vx;
-                    rud_cmd_ptr->vy = output.vy;
+                    rud_cmd_ptr->vx = -output.vy;
+                    rud_cmd_ptr->vy = output.vx;
+                    nav_sequence_done = false;
                     break;
                 }
 
@@ -498,9 +501,11 @@ extern "C"
                             WAYPOINTS[waypoint_index].y);
                         seq_step = seq_step_t::MOVING;
                     }
+                    nav_sequence_done = false;
                     break;
 
                 case seq_step_t::DONE:
+                    nav_sequence_done = true;
                     if (!nav_trigger)
                     {
                         seq_step = seq_step_t::IDLE;
@@ -598,6 +603,7 @@ extern "C"
         can_tx_drv_t::add_data(0x102, 1, game_started);
         can_tx_drv_t::add_data(0x102, 1, enemy_color);
         can_tx_drv_t::add_data(0x102, 1, scan);
+        can_tx_drv_t::add_data(0x102, 1, nav_sequence_done);
         can_tx_drv_t::send(0x102, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
 
