@@ -21,6 +21,7 @@
 #include "pyro_uart_comm.h"
 #include "pyro_uart_message.h"
 #include "pyro_powermeter.h"
+#include "pyro_nav_hub.h"
 
 using namespace pyro;
 
@@ -36,6 +37,16 @@ yaw_cfg_t *yaw_cfg_ptr                     = nullptr;
 uart_comm_t *comm                          = nullptr;
 dr16_drv_t::dr16_ctrl_t const *rc_ctrl_ptr = nullptr;
 referee_data_t referee_data{};
+
+nav_hub_t *nav_hub_ptr        = nullptr;
+nav_hub_deps_t nav_deps;
+
+pid_t nav_x_pid{1.0f, 0.01f, 0.01f, 0.08f, 1.5f};
+pid_t nav_y_pid{1.0f, 0.01f, 0.01f, 0.08f, 1.5f};
+nav_point_t initial_nav_pos{0.0f, 0.0f, 0.0f};
+nav_point_t nav_target{5.0f, 0.0f, 0.0f};
+
+extern float yaw, roll, pitch;
 
 powermeter_drv_t *power_meter;
 powermeter_data power_data;
@@ -195,6 +206,8 @@ extern "C"
 
     void gimbal2chassis()
     {
+        ins_drv_t *ins = ins_drv_t::get_instance();
+        ins->get_rads_b(&yaw, &pitch, &roll);
         // ==================== 1. 常量定义（消除魔法数字，便于维护）
         // ====================
         constexpr auto CAN_CHANNEL        = can_hub_t::which_can::can3;
@@ -227,13 +240,13 @@ extern "C"
         {
             IDLE,
             DELAY,
-            FORWARD_5M,
-            LEFT_3M,
-            FORWARD_5M_2,
+            MOVING,
+            WAYPOINT_WAIT,
             DONE
         };
         static seq_step_t seq_step           = seq_step_t::IDLE;
         static TickType_t seq_delay_start    = 0;
+        static uint8_t waypoint_index        = 0;
 #endif
         // 滤波系数：0~1，越大越平滑，越小响应越快（推荐 0.1~0.3）
         constexpr float LPF_ALPHA         = 0.15f;
@@ -277,7 +290,19 @@ extern "C"
                 yaw_cmd_ptr->current_yaw_imu_rad;
         }
 
-        // ==================== 7. 分支：导航使能/禁用 → 更新控制量
+        // ==================== 7. 持续更新全局地图位姿（仅 SEQUENCE 模式）
+        // ====================
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
+        {
+            float body_vx = 0.0f;
+            float body_vy = 0.0f;
+            rud_chassis_ptr->get_body_velocity(body_vx, body_vy);
+            nav_hub_ptr->update_feedback(
+                body_vx, body_vy, yaw_cmd_ptr->current_yaw_imu_rad, roll, pitch);
+        }
+#endif
+
+        // ==================== 8. 分支：导航使能/禁用 → 更新控制量
         // ====================
         if (!is_nav_enable)
         {
@@ -289,10 +314,13 @@ extern "C"
                 odom_request_last = false;
             }
 #elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
-            // 拨杆关闭 → 取消序列
+            // 拨杆关闭 → 取消导航
             if (seq_step != seq_step_t::IDLE)
             {
-                rud_chassis_ptr->stop_distance_move();
+                if (nav_hub_ptr != nullptr)
+                {
+                    nav_hub_ptr->clear_target();
+                }
                 seq_step = seq_step_t::IDLE;
             }
 #endif
@@ -370,20 +398,30 @@ extern "C"
             }
             odom_request_last = odom_request;
 #elif SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
-            // 拨杆 ON (is_nav_enable=1) → 触发移动序列: 延时→直走5m→左走3m→直走5m
+            // 拨杆 ON (is_nav_enable=1) → nav_hub 路径规划: 延时→直走5m→左走3m→直走5m
             {
-                constexpr TickType_t SEQ_DELAY_TICKS = pdMS_TO_TICKS(1500);
-                constexpr float SEQ_DIST_5M           = 1.0f;
-                constexpr float SEQ_DIST_3M           = 1.0f;
-                constexpr float SEQ_SPEED             = ODOM_FORWARD_SPEED_MPS;
+                constexpr TickType_t SEQ_DELAY_TICKS         = pdMS_TO_TICKS(1500);
+                constexpr TickType_t WAYPOINT_WAIT_TICKS = pdMS_TO_TICKS(500);
+
+                const nav_point_t WAYPOINTS[] = {
+                    {0.0f, 0.0f, 0.0f},
+                    {0.0f, 1.0f, 0.0f},  // 直走 5m
+                    {1.0f, 1.0f, 0.0f},  // 左走 3m
+                    {1.0f, 2.0f, 0.0f}, // 直走 5m
+                };
+                constexpr size_t WAYPOINT_COUNT =
+                    sizeof(WAYPOINTS) / sizeof(WAYPOINTS[0]);
 
                 const bool nav_trigger =
                     rud_cmd_ptr->mode == cmd_base_t::mode_t::ACTIVE;
 
-                // 拨杆 OFF 或切 PASSIVE → 取消序列
+                // 拨杆 OFF 或切 PASSIVE → 取消导航
                 if (!nav_trigger && seq_step != seq_step_t::IDLE)
                 {
-                    rud_chassis_ptr->stop_distance_move();
+                    if (nav_hub_ptr != nullptr)
+                    {
+                        nav_hub_ptr->clear_target();
+                    }
                     seq_step = seq_step_t::IDLE;
                 }
 
@@ -392,65 +430,73 @@ extern "C"
                 case seq_step_t::IDLE:
                     if (nav_trigger)
                     {
-                        seq_step         = seq_step_t::DELAY;
-                        seq_delay_start  = xTaskGetTickCount();
+                        waypoint_index = 0;
+                        nav_hub_ptr->set_target(
+                            WAYPOINTS[0].x, WAYPOINTS[0].y);
+                        seq_step        = seq_step_t::DELAY;
+                        seq_delay_start = xTaskGetTickCount();
                     }
                     break;
 
                 case seq_step_t::DELAY:
                     if (!nav_trigger)
                     {
+                        nav_hub_ptr->clear_target();
                         seq_step = seq_step_t::IDLE;
                     }
                     else if (xTaskGetTickCount() - seq_delay_start >=
                              SEQ_DELAY_TICKS)
                     {
-                        rud_chassis_ptr->move_distance(
-                            rud_chassis_t::move_direction_t::FORWARD,
-                            SEQ_DIST_5M, SEQ_SPEED);
-                        seq_step = seq_step_t::FORWARD_5M;
+                        seq_step = seq_step_t::MOVING;
                     }
                     break;
 
-                case seq_step_t::FORWARD_5M:
+                case seq_step_t::MOVING:
+                {
                     if (!nav_trigger)
                     {
-                        rud_chassis_ptr->stop_distance_move();
+                        nav_hub_ptr->clear_target();
                         seq_step = seq_step_t::IDLE;
+                        break;
                     }
-                    else if (!rud_chassis_ptr->is_distance_move_active())
-                    {
-                        rud_chassis_ptr->move_distance(
-                            rud_chassis_t::move_direction_t::LEFT,
-                            SEQ_DIST_3M, SEQ_SPEED);
-                        seq_step = seq_step_t::LEFT_3M;
-                    }
-                    break;
 
-                case seq_step_t::LEFT_3M:
-                    if (!nav_trigger)
-                    {
-                        rud_chassis_ptr->stop_distance_move();
-                        seq_step = seq_step_t::IDLE;
-                    }
-                    else if (!rud_chassis_ptr->is_distance_move_active())
-                    {
-                        rud_chassis_ptr->move_distance(
-                            rud_chassis_t::move_direction_t::FORWARD,
-                            SEQ_DIST_5M, SEQ_SPEED);
-                        seq_step = seq_step_t::FORWARD_5M_2;
-                    }
-                    break;
+                    // 获取导航输出
+                    const nav_output_t output = nav_hub_ptr->update();
 
-                case seq_step_t::FORWARD_5M_2:
+                    if (output.arrived)
+                    {
+                        waypoint_index++;
+                        rud_cmd_ptr->vx = 0.0f;
+                        rud_cmd_ptr->vy = 0.0f;
+                        if (waypoint_index >= WAYPOINT_COUNT)
+                        {
+                            seq_step = seq_step_t::DONE;
+                            break;
+                        }
+                        seq_step        = seq_step_t::WAYPOINT_WAIT;
+                        seq_delay_start = xTaskGetTickCount();
+                        break;
+                    }
+
+                    rud_cmd_ptr->vx = output.vx;
+                    rud_cmd_ptr->vy = output.vy;
+                    break;
+                }
+
+                case seq_step_t::WAYPOINT_WAIT:
                     if (!nav_trigger)
                     {
-                        rud_chassis_ptr->stop_distance_move();
+                        nav_hub_ptr->clear_target();
                         seq_step = seq_step_t::IDLE;
+                        break;
                     }
-                    else if (!rud_chassis_ptr->is_distance_move_active())
+                    if (xTaskGetTickCount() - seq_delay_start >=
+                        WAYPOINT_WAIT_TICKS)
                     {
-                        seq_step = seq_step_t::DONE;
+                        nav_hub_ptr->set_target(
+                            WAYPOINTS[waypoint_index].x,
+                            WAYPOINTS[waypoint_index].y);
+                        seq_step = seq_step_t::MOVING;
                     }
                     break;
 
@@ -463,13 +509,12 @@ extern "C"
                 }
             }
 
-            rud_cmd_ptr->vx          = 0.0f;
-            rud_cmd_ptr->vy          = 0.0f;
-            rud_cmd_ptr->follow_yaw  = false;
+            rud_cmd_ptr->follow_yaw  = true;
             rud_cmd_ptr->is_nav_mode = false;
 
             if (seq_step == seq_step_t::DONE)
             {
+                rud_cmd_ptr->follow_yaw  = false;
                 spinning_top_control();
             }
             else
@@ -666,6 +711,11 @@ extern "C"
         power_meter->init();
 
         referee_drv_t::get_instance()->set_robot_id(7);
+        nav_deps.x_pid = &nav_x_pid;
+        nav_deps.y_pid = &nav_y_pid;
+#if SENTRY_RIGHT_DOWN_MODE == SENTRY_RIGHT_DOWN_ODOM_SEQUENCE
+        nav_hub_ptr = new nav_hub_t(initial_nav_pos, nav_deps);
+#endif
 
         xTaskCreate(sentry_chassis_thread, "sentry_chassis_thread", 512,
                     nullptr, configMAX_PRIORITIES - 1, nullptr);
