@@ -45,6 +45,7 @@ pid_t nav_x_pid{1.0f, 0.01f, 0.01f, 0.08f, 1.5f};
 pid_t nav_y_pid{1.0f, 0.01f, 0.01f, 0.08f, 1.5f};
 nav_point_t initial_nav_pos{0.0f, 0.0f, 0.0f};
 nav_point_t nav_target{5.0f, 0.0f, 0.0f};
+bool nav_sequence_done = false;
 
 extern float yaw, roll, pitch;
 
@@ -518,11 +519,13 @@ extern "C"
             if (seq_step == seq_step_t::DONE)
             {
                 rud_cmd_ptr->follow_yaw  = false;
+                nav_sequence_done = true;
                 spinning_top_control();
             }
             else
             {
                 rud_cmd_ptr->wz = 0.0f;
+                nav_sequence_done = false;
             }
 #else
 #error "Unsupported SENTRY_RIGHT_DOWN_MODE"
@@ -601,6 +604,7 @@ extern "C"
         can_tx_drv_t::add_data(0x102, 1, game_started);
         can_tx_drv_t::add_data(0x102, 1, enemy_color);
         can_tx_drv_t::add_data(0x102, 1, scan);
+        can_tx_drv_t::add_data(0x102, 1, nav_sequence_done);
         can_tx_drv_t::send(0x102, can_hub_t::get_instance()->hub_get_can_obj(
                                       can_hub_t::which_can::can3));
 
