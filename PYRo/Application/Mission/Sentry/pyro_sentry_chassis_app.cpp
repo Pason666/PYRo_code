@@ -405,9 +405,12 @@ extern "C"
 
                 const nav_point_t WAYPOINTS[] = {
                     {0.0f, 0.0f, 0.0f},
-                    {0.0f, 1.0f, 0.0f},  // 直走 5m
-                    {1.0f, 1.0f, 0.0f},  // 左走 3m
-                    {1.0f, 2.0f, 0.0f}, // 直走 5m
+                    {-1.222f, 0.0f, 0.0f},
+                    {-1.222f, 4.383f, 0.0f},
+                    {-3.287f, 6.09f, 0.0f},
+                    // {0.0f, 1.0f, 0.0f},  // 直走 5m
+                    // {1.0f, 1.0f, 0.0f},  // 左走 3m
+                    // {1.0f, 2.0f, 0.0f}, // 直走 5m
                 };
                 constexpr size_t WAYPOINT_COUNT =
                     sizeof(WAYPOINTS) / sizeof(WAYPOINTS[0]);
