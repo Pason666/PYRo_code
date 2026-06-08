@@ -10,7 +10,8 @@ class dm_motor_drv_t : public motor_base_t // MIT only
   public:
     enum error_code
     {
-        ok                    = 0x00,
+        disabled              = 0x00,
+        ok                    = 0x01,
         over_votlage          = 0x08,
         under_voltage         = 0x09,
         over_temperature      = 0x0a,
@@ -19,11 +20,12 @@ class dm_motor_drv_t : public motor_base_t // MIT only
         communication_lost    = 0x0d,
         over_load             = 0x0e,
     };
-    dm_motor_drv_t(uint32_t tx_id, uint32_t rx_id, can_hub_t::which_can which);
+    dm_motor_drv_t(uint32_t can_id, uint32_t master_id, can_hub_t::which_can which);
     ~dm_motor_drv_t();
 
     status_t enable() override;
     status_t disable() override;
+    status_t clear_error();
 
     status_t update_feedback() override;
     status_t send_torque(float torque) override;
@@ -34,29 +36,30 @@ class dm_motor_drv_t : public motor_base_t // MIT only
 
     void set_runtime_kp(float kp);
     void set_runtime_kd(float kd);
+    error_code get_error_code() { return _error_code; }
 
   private:
     uint32_t _can_id;
     uint32_t _master_id;
 
-    error_code _error_code;
+    error_code _error_code{ok};
 
-    float _mos_temperature;
-    float _coil_temperature;
+    float _mos_temperature{0.0f};
+    float _coil_temperature{0.0f};
 
-    float _min_position;
-    float _max_position;
-    float _min_rotate;
-    float _max_rotate;
+    float _min_position{0.0f};
+    float _max_position{0.0f};
+    float _min_rotate{0.0f};
+    float _max_rotate{0.0f};
     static constexpr float _min_kp = 0.0f;
     static constexpr float _max_kp = 500.0f;
     static constexpr float _min_kd = 0.0f;
     static constexpr float _max_kd = 5.0f;
-    float _min_torque;
-    float _max_torque;
+    float _min_torque{0.0f};
+    float _max_torque{0.0f};
 
-    float _runtime_kp;
-    float _runtime_kd;
+    float _runtime_kp{0.0f};
+    float _runtime_kd{0.0f};
 };
 }; // namespace pyro
 

@@ -45,3 +45,6 @@ SpaceBeforeInheritanceColon: true
 
 #所有函数展开
 AllowShortFunctionsOnASingleLine: None
+
+#禁止头文件排序
+SortIncludes: Never

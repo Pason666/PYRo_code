@@ -24,9 +24,9 @@ status_t pyro::dm_motor_drv_t::enable()
     std::array<uint8_t, 8> data;
     data.fill(0xFF);
     data[7] = 0xfc;
-    _enable = true;
     if(PYRO_OK!=_can_drv->send_msg(_can_id, data.data()))
         return PYRO_ERROR;
+    _enable = true;
     return PYRO_OK;
 }
 
@@ -34,8 +34,20 @@ status_t dm_motor_drv_t::disable()
 {
     std::array<uint8_t, 8> data;
     data.fill(0xFF);
-    data[7] = 0xfc;
+    data[7] = 0xfd;
+    if(PYRO_OK!=_can_drv->send_msg(_can_id, data.data()))
+    {
+        return PYRO_ERROR;
+    }
     _enable = false;
+    return PYRO_OK;
+}
+
+status_t dm_motor_drv_t::clear_error()
+{
+    std::array<uint8_t, 8> data;
+    data.fill(0xFF);
+    data[7] = 0xfb;
     if(PYRO_OK!=_can_drv->send_msg(_can_id, data.data()))
         return PYRO_ERROR;
     return PYRO_OK;
@@ -57,9 +69,29 @@ static float uint_to_float(int x_int, float x_min, float x_max, int bits)
 
 status_t pyro::dm_motor_drv_t::update_feedback()
 {
+    static constexpr TickType_t FEEDBACK_TIMEOUT_MS = 50U;
     std::array<uint8_t, 8> data;
     _feedback_msg->get_data(data);
+    const TickType_t now = xTaskGetTickCount();
+    if (now - _feedback_msg->get_last_update_time() >
+        pdMS_TO_TICKS(FEEDBACK_TIMEOUT_MS))
+    {
+        _error_code = communication_lost;
+        _enable = false;
+        return PYRO_ERROR;
+    }
+
     _error_code = static_cast<error_code>(((data[0]>>4)&0x0f));
+    switch(_error_code)
+    {
+        case error_code::ok:
+            _enable = true;
+            break;
+        case error_code::disabled:
+        default:
+            _enable = false;
+            break;
+    }
     uint16_t position = ((uint16_t)((data[1] << 8) | (data[2])));
     uint16_t rotate   = ((uint16_t)((data[3] << 4) | ((data[4] >> 4) & 0x0f)));
     uint16_t torque =

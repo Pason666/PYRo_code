@@ -14,7 +14,7 @@
 #ifndef __PYRO_DWT_DRV_H__
 #define __PYRO_DWT_DRV_H__
 
-#include "stdint.h"
+#include <cstdint>
 
 namespace pyro
 {
@@ -30,7 +30,7 @@ class dwt_drv_t
   public:
     // --- Constructor/Destructor ---
     // Deleted constructors to make this a pure static class.
-    dwt_drv_t()                              = delete;
+    dwt_drv_t()                             = delete;
     dwt_drv_t(const dwt_drv_t &)            = delete;
     dwt_drv_t &operator=(const dwt_drv_t &) = delete;
 
@@ -116,7 +116,8 @@ class dwt_drv_t
     inline static uint32_t _cpu_freq_hz{};
     inline static uint32_t _cpu_freq_hz_ms{};
     inline static uint32_t _cpu_freq_hz_us{};
-    inline static uint32_t _cyccnt_round_count{}; // 32-bit counter overflow count
+    inline static uint32_t
+        _cyccnt_round_count{};             // 32-bit counter overflow count
     inline static uint32_t _cyccnt_last{}; // Last count, for overflow detection
     inline static uint64_t _cyccnt_64{};   // 64-bit total cycle count
     inline static time_t _sys_time{};      // Formatted system time

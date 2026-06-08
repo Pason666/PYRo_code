@@ -26,10 +26,6 @@ static size_t xBlockAllocatedBit = 0;
 /*
  * 新增一个独立的 DMA 堆。它与主堆完全独立，使用相同的分配策略（合并空闲块）。
  *
- * 配置选项（可在 FreeRTOSConfig.h 中定义）:
- *  - configTOTAL_DMA_HEAP_SIZE           : DMA 堆大小（字节）。若未定义或为 0，则 DMA 堆不可用，相关函数返回 NULL / 0。
- *  - configAPPLICATION_ALLOCATED_DMA_HEAP: 若为 1，应用需提供 ucDmaHeap[] 缓冲区（同主堆的配置方式）。
- *
  * 提供函数:
  *  - void *pvPortDmaMalloc( size_t xWantedSize );
  *  - void  vPortDmaFree( void *pv );
@@ -39,8 +35,8 @@ static size_t xBlockAllocatedBit = 0;
  */
 
 #ifndef configTOTAL_DMA_HEAP_SIZE
-	/* 默认 DMA 堆大小为 0（不可用），如果需要使用请在 FreeRTOSConfig.h 中定义一个合理值 */
-	#define configTOTAL_DMA_HEAP_SIZE 1024
+	/* 默认 DMA 堆大小为 0（不可用），如果需要使用请定义一个合理值 */
+	#define configTOTAL_DMA_HEAP_SIZE 4096
 #endif
 
 #if( configTOTAL_DMA_HEAP_SIZE > 0 )

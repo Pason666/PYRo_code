@@ -17,6 +17,7 @@
 
 #include "pyro_algo_ols.h" // For pyro::ols_t
 #include <cstdint>
+#include "cmath"
 
 namespace pyro
 {

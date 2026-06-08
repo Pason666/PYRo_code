@@ -60,7 +60,7 @@ class dji_motor_drv_t : public motor_base_t
   public:
     dji_motor_drv_t(dji_motor_tx_frame_t::register_id_t id,
                     can_hub_t::which_can which);
-    // ~dji_m_motor_drv_t();
+    ~dji_motor_drv_t() = default;
 
     status_t enable() override;
     status_t disable() override;

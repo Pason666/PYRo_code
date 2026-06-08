@@ -80,17 +80,17 @@ uart_drv_t *uart_drv_t::get_instance(const which_uart uart)
 {
     switch (uart)
     {
-        case uart1:
-            static uart_drv_t uart_drv1(&huart1, 42);
+        case which_uart::uart1:
+            static uart_drv_t uart_drv1(&huart1, 256);
             return &uart_drv1;
-        case uart5:
-            static uart_drv_t uart_drv5(&huart5, 36);
+        case which_uart::uart5:
+            static uart_drv_t uart_drv5(&huart5, 256);
             return &uart_drv5;
-        case uart7:
-            static uart_drv_t uart_drv7(&huart7, 48);
+        case which_uart::uart7:
+            static uart_drv_t uart_drv7(&huart7, 256);
             return &uart_drv7;
-        case uart10:
-            static uart_drv_t uart_drv10(&huart10, 64);
+        case which_uart::uart10:
+            static uart_drv_t uart_drv10(&huart10, 256);
             return &uart_drv10;
         default:
             return nullptr;
@@ -141,6 +141,7 @@ status_t uart_drv_t::write(const uint8_t *p, const uint16_t size)
     const uint8_t ret = HAL_UART_Transmit_DMA(_huart, p, size);
     if (ret == HAL_OK)
     {
+        state.tx_busy = 0x01U;
         return PYRO_OK;
     }
     if (ret == HAL_BUSY)
@@ -245,6 +246,17 @@ void uart_drv_t::add_rx_event_callback(const rx_event_func &func,
     rx_event_callbacks.push_back(callback);
 }
 
+void uart_drv_t::add_tx_cplt_callback(const tx_cplt_func &func,
+                                      const uint32_t owner)
+{
+    remove_tx_cplt_callback(owner);
+
+    tx_cplt_callback_t callback;
+    callback.owner = owner;
+    callback.func  = func;
+    tx_cplt_callbacks.push_back(callback);
+}
+
 /**
  * @brief Removes a custom C++ RX event callback based on the owner ID.
  */
@@ -256,6 +268,20 @@ status_t uart_drv_t::remove_rx_event_callback(const uint32_t owner)
         if (it->owner == owner)
         {
             rx_event_callbacks.erase(it);
+            return PYRO_OK;
+        }
+    }
+    return PYRO_NOT_FOUND;
+}
+
+status_t uart_drv_t::remove_tx_cplt_callback(const uint32_t owner)
+{
+    for (auto it = tx_cplt_callbacks.begin(); it != tx_cplt_callbacks.end();
+         ++it)
+    {
+        if (it->owner == owner)
+        {
+            tx_cplt_callbacks.erase(it);
             return PYRO_OK;
         }
     }
@@ -368,5 +394,27 @@ extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
                                          UART_CLEAR_NEF | UART_CLEAR_OREF |
                                          UART_CLEAR_RTOF);
         drv->enable_rx_dma();
+    }
+}
+
+extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    const auto it = pyro::uart_drv_t::uart_map().find(huart);
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    if (it != pyro::uart_drv_t::uart_map().end() && it->second)
+    {
+        const auto drv = it->second;
+        drv->state.tx_busy = 0;
+
+        for (auto &cb : drv->tx_cplt_callbacks)
+        {
+            cb.func(xHigherPriorityTaskWoken);
+        }
+    }
+
+    if (xHigherPriorityTaskWoken)
+    {
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }

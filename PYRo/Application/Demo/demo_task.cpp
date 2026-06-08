@@ -17,6 +17,7 @@ extern "C"
     extern void pyro_rc_demo(void *arg);
     extern void pyro_motor_demo(void *arg);
     extern void pyro_wheel_demo(void *arg);
+    extern void pyro_control_demo(void *arg);
     extern void pyro_controller_demo(void *arg);
     extern void pyro_vofa_demo(void *arg);
     extern void IMU_task(void *argument);

@@ -1,9 +1,9 @@
 #include "pyro_jcom.h"
-
 #include "pyro_core_dma_heap.h"
 #include "task.h"
-
 #include "cstring"
+#include "pyro_core_config.h"
+
 
 namespace pyro
 {
@@ -25,7 +25,8 @@ jcom_drv_t::~jcom_drv_t()
 
 jcom_drv_t &jcom_drv_t::get_instance(uint8_t max_length)
 {
-    static jcom_drv_t instance(max_length, uart_drv_t::get_instance(uart_drv_t::uart1));
+    static jcom_drv_t instance(
+        max_length, uart_drv_t::get_instance(static_cast<uart_drv_t::which_uart>(JCOM_DEBUG_PORT)));
     return instance;
 }
 
@@ -72,8 +73,9 @@ void jcom_drv_t::remove_data(const float *data)
 
 void jcom_drv_t::update_data()
 {
-    static uint8_t frame_tail[4] = {0x00, 0x00, 0x80, 0x7F};
+    static uint8_t frame_head[4] = {0x00, 0x00, 0x80, 0x7F};
     uint8_t offset               = 0;
+    _data_pack[offset++]           = *reinterpret_cast<float *>(frame_head);
     for (const auto &[data, size] : _data_nodes)
     {
         for (uint8_t i = 0; i < size; ++i)
@@ -81,7 +83,6 @@ void jcom_drv_t::update_data()
             _data_pack[offset++] = data[i];
         }
     }
-    _data_pack[offset] = *reinterpret_cast<float *>(frame_tail);
 }
 
 void jcom_drv_t::send()

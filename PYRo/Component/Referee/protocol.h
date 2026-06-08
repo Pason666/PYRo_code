@@ -1,81 +1,427 @@
 #ifndef ROBOMASTER_PROTOCOL_H
 #define ROBOMASTER_PROTOCOL_H
 
-#include "struct_typedef.h"
+#include <cstdint>
+#include <cstddef>
 
-#define HEADER_SOF 0xA5
-#define REF_PROTOCOL_FRAME_MAX_SIZE         128
 
-#define REF_PROTOCOL_HEADER_SIZE            sizeof(frame_header_struct_t)
-#define REF_PROTOCOL_CMD_SIZE               2
-#define REF_PROTOCOL_CRC16_SIZE             2
-#define REF_HEADER_CRC_LEN                  (REF_PROTOCOL_HEADER_SIZE + REF_PROTOCOL_CRC16_SIZE)
-#define REF_HEADER_CRC_CMDID_LEN            (REF_PROTOCOL_HEADER_SIZE + REF_PROTOCOL_CRC16_SIZE + sizeof(uint16_t))
-#define REF_HEADER_CMDID_LEN                (REF_PROTOCOL_HEADER_SIZE + sizeof(uint16_t))
+namespace pyro
+{
+
+constexpr uint8_t HEADER_SOF    = 0xA5;
+constexpr size_t FRAME_MAX_SIZE = 256;
+constexpr size_t HEADER_SIZE    = 5; // sizeof(frame_header_t)
+constexpr size_t CMD_SIZE       = 2;
+constexpr size_t CRC16_SIZE     = 2;
+constexpr size_t HEADER_CRC_LEN = HEADER_SIZE + CRC16_SIZE;
+constexpr size_t HEADER_CRC_CMDID_LEN =
+    HEADER_SIZE + CRC16_SIZE + sizeof(uint16_t);
+constexpr size_t HEADER_CMDID_LEN = HEADER_SIZE + sizeof(uint16_t);
 
 #pragma pack(push, 1)
 
-typedef enum
+// 命令码 (enum class)
+enum class cmd_id : uint16_t
 {
-    GAME_STATE_CMD_ID                 = 0x0001,//比赛状态信息
-    GAME_RESULT_CMD_ID                = 0x0002,//比赛结果数据
-    GAME_ROBOT_HP_CMD_ID              = 0x0003,//机器人血量
-    FIELD_EVENTS_CMD_ID               = 0x0101,//场地事件数据
-    SUPPLY_PROJECTILE_ACTION_CMD_ID   = 0x0102,//补给站数据
-    //SUPPLY_PROJECTILE_BOOKING_CMD_ID  = 0x0103,
-    REFEREE_WARNING_CMD_ID            = 0x0104,//裁判警告数据
+    // --- Rx: Server -> Robot ---
+    GAME_STATE          = 0x0001, // 比赛状态数据
+    GAME_RESULT         = 0x0002, // 比赛结果数据
+    GAME_ROBOT_HP       = 0x0003, // 机器人血量数据
+    FIELD_EVENTS        = 0x0101, // 场地事件数据
+    REFEREE_WARNING     = 0x0104, // 裁判警告数据
+    DART_INFO           = 0x0105, // 飞镖发射相关数据
 
-    DART_EMMIT_CMD_ID	              = 0x0105,//飞镖发射相关数据
+    // Rx: 自主决策
+    SENTRY_CMD          = 0x0120, // [V1.2] 哨兵自主决策指令
+    RADAR_CMD           = 0x0121, // [V1.2] 雷达自主决策指令
 
-    ROBOT_STATE_CMD_ID                = 0x0201,//机器人性能数据
-    POWER_HEAT_DATA_CMD_ID            = 0x0202,//底盘功率和枪口热量
-    ROBOT_POS_CMD_ID                  = 0x0203,//机器人位置信息
-    BUFF_MUSK_CMD_ID                  = 0x0204,//机器人增益
-    AERIAL_ROBOT_ENERGY_CMD_ID        = 0x0205,//空中支援时间数据
-    ROBOT_HURT_CMD_ID                 = 0x0206,//伤害状态数据
-    SHOOT_DATA_CMD_ID                 = 0x0207,//实时射击数据
-    BULLET_REMAINING_CMD_ID           = 0x0208,//允许发弹量
+    ROBOT_STATE         = 0x0201, // 机器人性能体系数据
+    POWER_HEAT_DATA     = 0x0202, // 实时功率热量数据
+    ROBOT_POS           = 0x0203, // 机器人位置
+    BUFF_MUSK           = 0x0204, // 机器人增益
+    AERIAL_ENERGY       = 0x0205, // 空中支援时间数据
+    ROBOT_HURT          = 0x0206, // 伤害状态
+    SHOOT_DATA          = 0x0207, // 实时射击信息
+    BULLET_REMAINING    = 0x0208, // 子弹剩余发送数
+    ROBOT_RFID          = 0x0209, // 机器人RFID状态
+    DART_CLIENT_CMD     = 0x020A, // 飞镖选手端指令数据
+    GROUND_ROBOT_POS    = 0x020B, // 地面机器人位置数据
+    RADAR_MARK          = 0x020C, // 雷达标记进度数据
+    SENTRY_INFO         = 0x020D, // 哨兵自主决策信息同步
+    RADAR_INFO          = 0x020E, // 雷达自主决策信息同步
 
-    ROBOT_RFID_CMD_ID	              = 0x0209,//机器人RFID数据
+    // --- Tx/Rx: 交互 ---
+    STUDENT_INTERACTIVE = 0x0301, // 机器人交互数据
+    CUSTOM_CONTROLLER   = 0x0302, // [图传] 自定义控制器与机器人交互
+    TINY_MAP_INTERACT   = 0x0303, // 选手端小地图交互数据
+    MAP_RECEIVE_RADAR   = 0x0305, // 选手端小地图接收雷达数据
+    CUSTOM_CLIENT_DATA  = 0x0306, // 自定义控制器与选手端交互数据
+    MAP_RECEIVE_PATH    = 0x0307, // 选手端小地图接收路径数据
+    MAP_RECEIVE_ROBOT   = 0x0308, // 选手端小地图接收机器人数据 (自定义UI消息)
+};
 
-    SENTRY_MATE_POS_CMD_ID            = 0x020B,//地面机器人数据
-    SENTRY_SELF_DECISION_CMD_ID	      = 0x020D,//哨兵自主决策信息同步
-
-
-    STUDENT_INTERACTIVE_DATA_CMD_ID   = 0x0301,//机器人交互数据
-
-    TINY_MAP_INTERACT_CMD_ID          = 0x0303,//选手端小地图交互数据
-    TINY_MAP_RECEIVE_SENTRY_CMD_ID    = 0x0307,//小地图接收哨兵数据
-    TINY_MAP_RECEIVE_ROBOT_CMD_ID     = 0x0308,//选手端小地图接受机器人数据
-}referee_cmd_id_t;
-
-typedef  struct
+// 交互子命令码范围 (enum class)
+enum class interaction_sub_cmd : uint16_t
 {
-  uint8_t SOF;
-  uint16_t data_length;
-  uint8_t seq;
-  uint8_t CRC8;
-} frame_header_struct_t;
+    // 客户端 UI 绘制 (Server -> Client)
+    UI_CMD_DELETE    = 0x0100,
+    UI_CMD_DRAW_1    = 0x0101,
+    UI_CMD_DRAW_2    = 0x0102,
+    UI_CMD_DRAW_5    = 0x0103,
+    UI_CMD_DRAW_7    = 0x0104,
+    UI_CMD_DRAW_CHAR = 0x0110,
+    // 机器人间通信 (Robot -> Robot)
+    ROBOT_COMM_START = 0x0200,
+    ROBOT_COMM_END   = 0x02FF,
+    // 自主决策指令
+    SENTRY_CMD       = 0x0120,
+    RADAR_CMD        = 0x0121,
+};
 
-typedef enum
+// 帧头结构
+struct frame_header_t
 {
-  STEP_HEADER_SOF  = 0,
-  STEP_LENGTH_LOW  = 1,
-  STEP_LENGTH_HIGH = 2,
-  STEP_FRAME_SEQ   = 3,
-  STEP_HEADER_CRC8 = 4,
-  STEP_DATA_CRC16  = 5,
-} unpack_step_e;
+    uint8_t sof;
+    uint16_t data_length;
+    uint8_t seq;
+    uint8_t crc8;
+};
 
-typedef struct
+/* ----------------- Structure Definitions ----------------- */
+
+// 0x0001
+struct game_status_t
 {
-  frame_header_struct_t *p_header;
-  uint16_t       data_len;
-  uint8_t        protocol_packet[REF_PROTOCOL_FRAME_MAX_SIZE];
-  unpack_step_e  unpack_step;
-  uint16_t       index;
-} unpack_data_t;
+    uint8_t game_type     : 4;
+    uint8_t game_progress : 4;
+    uint16_t stage_remain_time;
+    uint64_t sync_timestamp;
+};
+
+// 0x0002
+struct game_result_t
+{
+    uint8_t winner;
+};
+
+// 0x0003
+struct game_robot_hp_t
+{
+    uint16_t robot_1_hp;
+    uint16_t robot_2_hp;
+    uint16_t robot_3_hp;
+    uint16_t robot_4_hp;
+    uint16_t reserved_1;
+    uint16_t robot_7_hp;
+    uint16_t outpost_hp;
+    uint16_t base_hp;
+};
+
+// 0x0101
+struct event_data_t
+{
+    // 补给区占领状态
+    uint32_t supply_zone                 : 1; // bit 0: 己方与补给区占领状态，1为已占领
+    uint32_t reserved_1                  : 1; // bit 1: 保留位
+    uint32_t rmul_supply_zone            : 1; // bit 2: 己方补给区的占领状态，1为已占领(仅RMUL适用)
+
+    // 能量机关状态
+    uint32_t small_energy_mechanism      : 2; // bit 3-4: 己方小能量机关的激活状态 (0:未激活, 1:已激活, 2:正在激活)
+    uint32_t big_energy_mechanism        : 2; // bit 5-6: 己方大能量机关的激活状态 (0:未激活, 1:已激活, 2:正在激活)
+
+    // 高地占领状态
+    uint32_t central_high_ground         : 2; // bit 7-8: 己方中央高地的占领状态 (1:被己方占领, 2:被对方占领)
+    uint32_t trapezoidal_high_ground     : 2; // bit 9-10: 己方梯形高地的占领状态，1为已占领
+
+    // 飞镖击打状态
+    uint32_t dart_hit_time               : 9; // bit 11-19: 对方飞镖最后一次击中己方前哨站或基地的时间 (0-420)
+    uint32_t dart_hit_target             : 3; // bit 20-22: 对方飞镖最后一次击中具体目标 (1:前哨站, 2:基地固定, 3:基地随机固定, 4:基地随机移动, 5:基地末端移动)
+
+    // 增益点占领状态
+    uint32_t central_buff_point          : 2; // bit 23-24: 中心增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领, 3:双方占领，仅RMUL适用)
+    uint32_t fortress_buff_point         : 2; // bit 25-26: 己方堡垒增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领, 3:双方占领)
+    uint32_t outpost_buff_point          : 2; // bit 27-28: 己方前哨站增益点的占领状态 (0:未占领, 1:己方占领, 2:对方占领)
+    uint32_t base_buff_point             : 1; // bit 29: 己方基地增益点的占领状态，1为已占领
+
+    // 保留位
+    uint32_t reserved                    : 2; // bit 30-31: 保留位
+};
+
+// 0x0104
+struct referee_warning_t
+{
+    uint8_t level;
+    uint8_t offending_robot_id;
+    uint8_t count;
+};
+
+// 0x0105
+struct dart_info_t
+{
+    uint8_t dart_remaining_time;
+    union
+    {
+        uint16_t dart_info;
+        struct
+        {
+            uint16_t dart_last_hit_target  : 3;
+            uint16_t dart_target_hit_count : 3;
+            uint16_t dart_aim_target       : 3;
+            uint16_t reserved              : 7;
+        };
+    };
+};
+
+// 0x0201
+struct robot_status_t
+{
+    uint8_t robot_id;
+    uint8_t robot_level;
+    uint16_t current_hp;
+    uint16_t maximum_hp;
+    uint16_t shooter_barrel_cooling_value;
+    uint16_t shooter_barrel_heat_limit;
+    uint16_t chassis_power_limit;
+    uint8_t power_management_gimbal_output  : 1;
+    uint8_t power_management_chassis_output : 1;
+    uint8_t power_management_shooter_output : 1;
+    uint8_t reserved                        : 5;
+};
+
+struct sentry_cmd_t
+{
+    // 复活相关指令
+    uint32_t confirm_resurrection       : 1;  // bit 0: 是否确认复活 (0: 确认不复活，1: 确认复活)
+    uint32_t confirm_buy_revive         : 1;  // bit 1: 是否确认兑换立即复活 (0: 不兑换，1: 确认消耗金币兑换)
+
+    // 兑换发弹量相关指令
+    uint32_t buy_projectile_allowance   : 11; // bit 2-12: 将要兑换的发弹量值（需单调递增）
+
+    // 远程请求相关指令
+    uint32_t remote_buy_projectile_times: 4;  // bit 13-16: 远程兑换发弹量的请求次数（需单调递增且每次仅能增加1）
+    uint32_t remote_buy_hp_times        : 4;  // bit 17-20: 远程兑换血量的请求次数（需单调递增且每次仅能增加1）
+
+    // 姿态与机制激活指令
+    uint32_t sentry_posture             : 2;  // bit 21-22: 修改当前姿态指令 (1: 进攻, 2: 防御, 3: 移动, 默认为3)
+    uint32_t confirm_activate_rune      : 1;  // bit 23: 是否确认使能量机关进入正在激活状态 (1为确认，默认为0)
+
+    // 保留位
+    uint32_t reserved                   : 8;  // bit 24-31: 保留位
+}; // 替代原 uint32_t sentry_cmd
+
+// 0x0202
+struct power_heat_data_t
+{
+    uint16_t reserved_1;
+    uint16_t reserved_2;
+    float reserved_3;
+    uint16_t buffer_energy;
+    uint16_t shooter_17mm_barrel_heat;
+    uint16_t shooter_42mm_barrel_heat;
+};
+
+// 0x0203
+struct robot_pos_t
+{
+    float x;
+    float y;
+    float angle;
+    uint32_t reserved;
+};
+
+// 0x0204
+struct buff_info_t
+{
+    uint8_t recovery_buff;
+    uint16_t cooling_buff;
+    uint8_t defence_buff;
+    uint8_t vulnerability_buff;
+    uint16_t attack_buff;
+    uint8_t remaining_energy;
+};
+
+// 0x0206
+struct hurt_data_t
+{
+    uint8_t armor_id            : 4;
+    uint8_t hp_deduction_reason : 4;
+};
+
+// 0x0207
+struct shoot_data_t
+{
+    uint8_t bullet_type;
+    uint8_t shooter_number;
+    uint8_t launching_frequency;
+    float initial_speed;
+    uint16_t launching_num;
+};
+
+// 0x0208
+struct projectile_allowance_t
+{
+    uint16_t projectile_allowance_17mm;
+    uint16_t projectile_allowance_42mm;
+    uint16_t remaining_gold_coin;
+    uint16_t projectile_allowance_fortress;
+};
+
+// 0x0209
+struct rfid_status_t
+{
+    union
+    {
+        uint32_t rfid_status;
+        struct
+        {
+            uint32_t ally_base_buff              : 1;
+            uint32_t ally_circular_high          : 1;
+            uint32_t enemy_circular_high         : 1;
+            uint32_t ally_trapezoidal_high       : 1;
+            uint32_t enemy_trapezoidal_high      : 1;
+            uint32_t ally_fly_ramp_front         : 1;
+            uint32_t ally_fly_ramp_back          : 1;
+            uint32_t enemy_fly_ramp_front        : 1;
+            uint32_t enemy_fly_ramp_back         : 1;
+            uint32_t ally_circular_high_down     : 1;
+            uint32_t ally_circular_high_up       : 1;
+            uint32_t enemy_circular_high_down    : 1;
+            uint32_t enemy_circular_high_up      : 1;
+            uint32_t ally_highway_down           : 1;
+            uint32_t ally_highway_up             : 1;
+            uint32_t enemy_highway_down          : 1;
+            uint32_t enemy_highway_up            : 1;
+            uint32_t ally_fortress_buff          : 1;
+            uint32_t ally_outpost_buff           : 1;
+            uint32_t ally_supply_no_overlap      : 1;
+            uint32_t ally_supply_overlap         : 1;
+            uint32_t ally_assembly_buff          : 1;
+            uint32_t enemy_assembly_buff         : 1;
+            uint32_t center_buff                 : 1;
+            uint32_t enemy_fortress_buff         : 1;
+            uint32_t enemy_outpost_buff          : 1;
+            uint32_t ally_tunnel_highway_down    : 1;
+            uint32_t ally_tunnel_highway_mid     : 1;
+            uint32_t ally_tunnel_highway_up      : 1;
+            uint32_t ally_tunnel_trapezoidal_low : 1;
+            uint32_t ally_tunnel_trapezoidal_mid : 1;
+            uint32_t ally_tunnel_trapezoidal_high: 1;
+        };
+    };
+    uint8_t rfid_status_2;
+};
+
+// 0x020A
+struct dart_client_cmd_t
+{
+    uint8_t dart_launch_opening_status;
+    uint8_t reserved;
+    uint16_t target_change_time;
+    uint16_t latest_launch_cmd_time;
+};
+
+// 0x020B
+struct ground_robot_position_t
+{
+    float hero_x;
+    float hero_y;
+    float engineer_x;
+    float engineer_y;
+    float standard_3_x;
+    float standard_3_y;
+    float standard_4_x;
+    float standard_4_y;
+    float reserved_1;
+    float reserved_2;
+};
+
+// 0x020C
+struct radar_mark_data_t
+{
+    uint16_t mark_progress;
+};
+
+// 0x020D
+struct sentry_info_t
+{
+    uint32_t sentry_info;
+    uint16_t sentry_info_2;
+};
+
+// 0x020E
+struct radar_info_t
+{
+    uint8_t radar_info;
+};
+
+// 0x0303
+struct map_command_t
+{
+    float target_position_x;
+    float target_position_y;
+    uint8_t cmd_keyboard;
+    uint8_t target_robot_id;
+    uint16_t cmd_source;
+};
+
+// -----------------------------------------------------------
+// TX Structs
+// -----------------------------------------------------------
+
+// 0x0301 Header
+struct interaction_header_t
+{
+    uint16_t data_cmd_id;
+    uint16_t sender_id;
+    uint16_t receiver_id;
+};
+
+// 0x0301 Payload Wrapper
+struct robot_interaction_data_t
+{
+    interaction_header_t header;
+    uint8_t user_data[112];
+};
+
+// 0x0308
+struct custom_info_t
+{
+    uint16_t sender_id;
+    uint16_t receiver_id;
+    uint8_t user_data[30];
+};
+
+// Main Data Holder
+struct referee_data_t
+{
+    game_status_t game_status;
+    game_result_t game_result;
+    game_robot_hp_t game_robot_hp;
+    event_data_t field_event;
+    referee_warning_t referee_warning;
+    dart_info_t dart_info;
+
+    robot_status_t robot_status;
+    power_heat_data_t power_heat;
+    robot_pos_t robot_pos;
+    buff_info_t buff;
+    hurt_data_t hurt;
+    shoot_data_t shoot;
+    projectile_allowance_t allowance;
+    rfid_status_t rfid;
+    dart_client_cmd_t dart_client_cmd;
+    ground_robot_position_t ground_robot_pos;
+    radar_mark_data_t radar_mark;
+    sentry_info_t sentry_info;
+    radar_info_t radar_info;
+
+    map_command_t map_command;
+    robot_interaction_data_t robot_interaction;
+};
 
 #pragma pack(pop)
 
-#endif //ROBOMASTER_PROTOCOL_H
+} // namespace pyro
+
+
+#endif // ROBOMASTER_PROTOCOL_H

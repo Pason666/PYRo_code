@@ -23,6 +23,7 @@ class rudder_kin_t
     {
         float speed; // Linear speed (m/s)
         float angle; // Steering angle (rad, -PI to +PI)
+        int direction; // Wheel direction
     };
 
     struct rudder_states_t
@@ -49,17 +50,6 @@ class rudder_kin_t
     [[nodiscard]] rudder_states_t solve(float vx, float vy, float wz,
                                         const rudder_states_t &current_states) const;
 
-    /**
-     * @brief Forward Kinematics (Module States -> Body Velocity)
-     * Estimates robot velocity from actual module states (Used for Odometry).
-     * @param states Current actual states of modules
-     * @param out_vx Output reference: Body velocity X
-     * @param out_vy Output reference: Body velocity Y
-     * @param out_wz Output reference: Body angular velocity Z
-     */
-    void compute_odometry(const rudder_states_t &states, float &out_vx,
-                          float &out_vy, float &out_wz) const;
-
   private:
     // Geometry half-lengths
     // Private variables start with _
@@ -72,9 +62,11 @@ class rudder_kin_t
     /**
      * @brief Helper to perform "Smart Selection" (Closest Angle & Reverse)
      */
-    void _optimize_module(float target_vx, float target_vy,
-                          const module_state_t &current_state,
-                          module_state_t &out_state) const;
+    // void _optimize_module(float target_vx, float target_vy,
+    //                       const module_state_t &current_state,
+    //                       module_state_t &out_state) const;
+
+    static void calc_angle(float &target_angle, float current_angle, int &direction);
 
     // Utility: Normalize angle to [-PI, PI]
     static float _normalize_angle(float angle);

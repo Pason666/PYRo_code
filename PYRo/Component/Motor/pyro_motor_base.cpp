@@ -9,6 +9,10 @@ motor_base_t::motor_base_t(can_hub_t::which_can which)
     _can_drv = can_hub_t::get_instance()->hub_get_can_obj(which);
 }
 
+motor_base_t::~motor_base_t()
+{
+}
+
 int8_t motor_base_t::get_temperature(void)
 {
     return _temperature;
@@ -34,4 +38,5 @@ bool motor_base_t::is_enable(void)
     return _enable;
 }
 
-};
+
+} // namespace pyro
